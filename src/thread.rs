@@ -1,12 +1,10 @@
 //! Threading support and wrappers
 
-use crate::mem::alloc::Buffer;
 use crate::result::*;
 use crate::svc;
 use crate::mem::alloc;
 use crate::wait;
 use crate::util;
-use core::alloc::Allocator;
 use core::alloc::Layout;
 use core::ptr;
 use core::arch::asm;
@@ -185,10 +183,10 @@ impl Thread {
     /// * `name`: The desired thread name
     /// * `stack_size`: The desired stack size
     pub fn new<T: Copy, F: 'static + Fn(&T)>(entry: F, args: &T, name: &str, stack_size: usize) -> Result<Self> {
-        let stack: Buffer<u8> = Buffer::new(alloc::PAGE_ALIGNMENT, stack_size)?;
+        let stack = unsafe {::alloc::alloc::alloc(Layout::from_size_align_unchecked(stack_size, alloc::PAGE_ALIGNMENT))};
 
         let thread_entry = ThreadEntry::new(thread_entry_impl::<T, F>, entry, args);
-        Self::new_impl(svc::INVALID_HANDLE, ThreadState::NotInitialized, name, stack.into_raw().cast(), stack_size, true, Some(thread_entry))
+        Self::new_impl(svc::INVALID_HANDLE, ThreadState::NotInitialized, name, stack, stack_size, true, Some(thread_entry))
     }
     /// Creates a new [`Thread`] with an entrypoint + args, name and stack
     /// 
@@ -307,7 +305,7 @@ impl Drop for Thread {
 
         if self.owns_stack {
             // should only occur when using the global allocator, since the thread doesn't know what allocator was used
-            unsafe {::alloc::alloc::Global.deallocate( ptr::NonNull::new_unchecked(self.stack), Layout::from_size_align_unchecked(self.stack_size, alloc::PAGE_ALIGNMENT)) };
+            unsafe {::alloc::alloc::dealloc(self.stack, Layout::from_size_align_unchecked(self.stack_size, alloc::PAGE_ALIGNMENT)) };
         }
 
         // If a thread is not created (like the main thread) the entry field will have nothing, and we definitely should not close threads we did not create...

@@ -375,6 +375,7 @@ pub fn create_transfer_memory(address: Address, size: Size, permissions: MemoryP
     unsafe {
         let mut handle: Handle = 0;
 
+        //log::info!("{:?}", backtrace::Backtrace::new());
         let rc = __nx_svc_create_transfer_memory(&mut handle, address, size, permissions);
         pack(rc, handle)
     }
@@ -384,11 +385,11 @@ pub fn create_transfer_memory(address: Address, size: Size, permissions: MemoryP
 pub fn transfer_memory_wait_for_permission(address: Address, permissions: MemoryPermission) -> Result<()> {
 
     loop {
-        let (memory, _) = query_memory(address)?;
+        let (memory, _) = query_memory(address)?;   
         if memory.permission.contains(permissions) {
             break;
         }
-        crate::thread::sleep(100000);
+        let _ = crate::thread::sleep(100000);
     }
     Ok(())
 }

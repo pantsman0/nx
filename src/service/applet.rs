@@ -65,6 +65,10 @@ impl ILibraryAppletCreator for LibraryAppletCreator {
 ipc_client_define_object_default!(WindowController);
 
 impl IWindowController for WindowController {
+    fn get_applet_resource_user_id(&mut self) -> Result<AppletResourceUserId> {
+        ipc_client_send_request_command!([self.session.object_info; 1] () => (aruid: AppletResourceUserId))
+    }
+
     fn acquire_foreground_rights(&mut self) -> Result<()> {
         ipc_client_send_request_command!([self.session.object_info; 10] () => ())
     }

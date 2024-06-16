@@ -1,6 +1,5 @@
 //! Graphics and GPU support and utils
 
-use crate::mem::alloc::Buffer;
 use crate::result::*;
 use crate::service;
 use crate::mem;
@@ -16,8 +15,9 @@ use crate::service::vi::IManagerRootService;
 use crate::service::vi::IApplicationDisplayService;
 use crate::service::dispdrv;
 use crate::service::applet;
-use crate::svc::MemoryAttribute;
 use crate::svc::MemoryPermission;
+use crate::util;
+use crate::util::PointerAndSize;
 
 pub mod rc;
 
@@ -897,11 +897,10 @@ pub fn convert_nv_error_code(err: nv::ErrorCode) -> Result<()> {
 #[allow(dead_code)]
 pub struct Context {
     vi_service: mem::Shared<dyn sf::IObject>,
-    nvdrv_service: mem::Shared<dyn INvDrvServices>,
+    pub nvdrv_service: mem::Shared<dyn INvDrvServices>,
     application_display_service: mem::Shared<dyn IApplicationDisplayService>,
     hos_binder_driver: mem::Shared<dyn dispdrv::IHOSBinderDriver>,
-    transfer_mem: alloc::Buffer<u8>,
-    transfer_mem_handle: svc::Handle,
+    transfer_mem: util::PointerAndSize,
     nvhost_fd: u32,
     nvmap_fd: u32,
     nvhostctrl_fd: u32,
@@ -967,9 +966,17 @@ impl Context {
     /// * `nvdrv_srv`: The NV [`INvDrvServices`] service object
     /// * `transfer_mem_size`: The transfer memory size to use
     pub fn from(vi_srv: mem::Shared<dyn sf::IObject>, application_display_srv: mem::Shared<dyn IApplicationDisplayService>, nvdrv_srv: mem::Shared<dyn INvDrvServices>, transfer_mem_size: usize) -> Result<Self> {
-        let transfer_mem = alloc::Buffer::new(alloc::PAGE_ALIGNMENT, transfer_mem_size)?;
-        let transfer_mem_handle = svc::create_transfer_memory(transfer_mem.ptr, transfer_mem_size, svc::MemoryPermission::None())?;
+        let transfer_mem = unsafe {::alloc::alloc::alloc(alloc::Layout::from_size_align_unchecked(transfer_mem_size, alloc::PAGE_ALIGNMENT))};
+        let transfer_mem_handle = svc::create_transfer_memory(transfer_mem, transfer_mem_size, svc::MemoryPermission::None())?;
         nvdrv_srv.get().initialize(transfer_mem_size as u32, sf::Handle::from(svc::CURRENT_PROCESS_PSEUDO_HANDLE), sf::Handle::from(transfer_mem_handle))?;
+        let _ = svc::close_handle(transfer_mem_handle);
+
+        /*
+        if let Ok(applet_proxy_service)  = service::new_service_object::<applet::AllSystemAppletProxiesService>() {
+            if let Ok(window_controlller) = (applet_proxy_service as mem::Shared<dyn applet::IAllSystemAppletProxiesService>).get().open_library_applet_proxy(sf::Handle::from(svc::CURRENT_PROCESS_PSEUDO_HANDLE)) {
+                if let Ok(aruid) = window_controlller.get().
+            }
+        } */
 
         let (nvhost_fd, nvhost_err) = nvdrv_srv.get().open(sf::Buffer::from_array(NVHOST_AS_GPU_PATH.as_bytes()))?;
         convert_nv_error_code(nvhost_err)?;
@@ -979,7 +986,7 @@ impl Context {
         convert_nv_error_code(nvhostctrl_err)?;
         
         let hos_binder_drv = application_display_srv.get().get_relay_service()?;
-        Ok(Self { vi_service: vi_srv, nvdrv_service: nvdrv_srv, application_display_service: application_display_srv, hos_binder_driver: hos_binder_drv, transfer_mem, transfer_mem_handle, nvhost_fd, nvmap_fd, nvhostctrl_fd })
+        Ok(Self { vi_service: vi_srv, nvdrv_service: nvdrv_srv, application_display_service: application_display_srv, hos_binder_driver: hos_binder_drv, transfer_mem: PointerAndSize { address: transfer_mem, size: transfer_mem_size }, /*transfer_mem_handle,*/ nvhost_fd, nvmap_fd, nvhostctrl_fd })
     }
 
     /// Gets the underlying NV [`INvDrvServices`] service object
@@ -1087,21 +1094,24 @@ impl Drop for Context {
     /// Destroys the [`Context`], closing everything it opened when it was created
     #[allow(unused_must_use)]
     fn drop(&mut self) {
-        self.nvdrv_service.get().close(self.nvhost_fd);
-        self.nvdrv_service.get().close(self.nvmap_fd);
-        self.nvdrv_service.get().close(self.nvhostctrl_fd);
+        let ndrv_service = self.nvdrv_service.get();
+        let nvhost_fd_close_res = ndrv_service.close(self.nvhost_fd);
+        let nvmap_fd_close_res = ndrv_service.close(self.nvmap_fd);
+        let nvhostctrl_fd_close_res = ndrv_service.close(self.nvhostctrl_fd);
         
+        
+        let ndrv_session = ndrv_service.get_session();
+        ndrv_session.close();
+        svc::transfer_memory_wait_for_permission(self.transfer_mem.address,  MemoryPermission::Write() | MemoryPermission::Read());
 
-        self.nvdrv_service.get().close(self.transfer_mem_handle);
-        self.nvdrv_service.get().get_session().close();
-        svc::transfer_memory_wait_for_permission(self.transfer_mem.ptr,  MemoryPermission::Write());
+        unsafe {::alloc::alloc::dealloc(self.transfer_mem.address, core::alloc::Layout::from_size_align_unchecked(self.transfer_mem.size, alloc::PAGE_ALIGNMENT)) };
 
         
-        svc::close_handle(self.transfer_mem_handle).unwrap();
+        //svc::close_handle(self.transfer_mem_handle).unwrap();
         //svc::set_memory_attribute(self.transfer_mem.ptr, self.transfer_mem.layout.size(), 0, MemoryAttribute::None());
         //svc::set_memory_permission(self.transfer_mem.ptr, self.transfer_mem.layout.size(), MemoryPermission::Read() | MemoryPermission::Write()).unwrap();
         // SAFETY: transfer_mem is immediately dropped after, so it can't be reused.
-        unsafe {self.transfer_mem.release()};
+        //unsafe {self.transfer_mem.release()};
 
     }
 }

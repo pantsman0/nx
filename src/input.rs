@@ -1,5 +1,6 @@
 //! Input utils and wrappers
 
+use crate::mem::Shared;
 use crate::result::*;
 use crate::service::hid;
 use crate::service::hid::shmem;
@@ -240,7 +241,7 @@ impl Context {
     /// * `supported_style_tags`: Supported [`NpadStyleTag`][`hid::NpadStyleTag`] flags
     /// * `supported_npad_ids`: Supported [`NpadIdType`][`hid::NpadIdType`] values
     pub fn new(supported_style_tags: hid::NpadStyleTag, supported_npad_ids: &[hid::NpadIdType]) -> Result<Self> {
-        let hid_srv = service::new_service_object::<hid::HidServer>()?;
+        let hid_srv: Shared<dyn IHidServer> = service::new_service_object::<hid::HidServer>()?;
         let applet_res = hid_srv.get().create_applet_resource(sf::ProcessId::new())?;
         
         let shmem_handle = applet_res.get().get_shared_memory_handle()?;

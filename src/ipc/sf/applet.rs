@@ -112,6 +112,7 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IWindowController {
+        get_applet_resource_user_id [1, version::VersionInterval::all()]: () => (aruid: AppletResourceUserId);
         acquire_foreground_rights [10, version::VersionInterval::all()]: () => ();
     }
 }

@@ -55,12 +55,13 @@ use crate::service::set::ISystemSettingsServer;
 use core::ptr;
 use core::mem;
 use core::arch::asm;
+use core::ptr::NonNull;
 
 // These functions must be implemented by any binary using this crate
 
 extern "Rust" {
     fn main() -> Result<()>;
-    fn initialize_heap(hbl_heap: util::PointerAndSize) -> util::PointerAndSize;
+    fn initialize_heap(hbl_heap: util::PointerAndSize) -> Result<()>;
 }
 
 /// Represents the fn pointer used for exiting
@@ -136,7 +137,7 @@ pub fn get_module_name() -> ModulePath {
     G_MODULE_NAME
 }
 
-static mut G_EXIT_FN: sync::Locked<Option<ExitFn>> = sync::Locked::new(false, None);
+static mut G_EXIT_FN: core::cell::OnceCell<ExitFn> = core::cell::OnceCell::new();
 static mut G_MAIN_THREAD: thread::Thread = thread::Thread::empty();
 
 /// Exits the current process
@@ -145,7 +146,15 @@ static mut G_MAIN_THREAD: thread::Thread = thread::Thread::empty();
 pub fn exit(rc: ResultCode) -> ! {
     unsafe {
         match G_EXIT_FN.get() {
-            Some(exit_fn) => exit_fn(rc),
+            Some(exit_fn) => {
+                asm!(
+                    "mov x0, {rc:x}",
+                    "br {fn}",
+                    rc = in(reg) rc.get_value(),
+                    fn = in(reg) *exit_fn
+                );
+                unreachable!();
+            },
             None => svc::exit_process()
         }
     }
@@ -272,25 +281,24 @@ unsafe fn normal_entry(maybe_abi_cfg_entries_ptr: *const hbl::AbiConfigEntry, ma
 
     // Set exit function (will be null for non-hbl NROs)
     match exec_type {
-        ExecutableType::Nro => G_EXIT_FN.set(Some(lr_exit_fn)),
-        ExecutableType::Nso => G_EXIT_FN.set(None),
+        ExecutableType::Nro => G_EXIT_FN.set(lr_exit_fn).expect("Exit function paranmeters are only set once"),
         _ => {}
     };
     
     // Initialize heap and memory allocation
-    heap = initialize_heap(heap);
-    alloc::initialize(heap);
+    initialize_heap(heap).unwrap();
 
     // Initialize version support
     initialize_version(hos_version_opt);
 
     // TODO: extend this (init more stuff, etc.)?
 
-    // Unwrap main(), which will trigger a panic if it didn't succeed
-    main().unwrap();
-
-    // Successful exit by default
-    exit(ResultSuccess::make());
+    // Turn the return value of `main()` into a ResultCode, and communicate it up to the hbl loader.
+    let return_code = match main() {
+        Ok(()) => ResultSuccess::make(),
+        Err(e) => e
+    };
+    exit(return_code);
 }
 
 unsafe fn exception_entry(_exc_type: svc::ExceptionType, _stack_top: *mut u8) {
@@ -300,12 +308,7 @@ unsafe fn exception_entry(_exc_type: svc::ExceptionType, _stack_top: *mut u8) {
 
 #[no_mangle]
 #[linkage = "weak"]
-unsafe extern "C" fn __nx_rrt0_entry(arg0: usize, arg1: usize) {
-    let lr_exit_fn: ExitFn;
-    asm!(
-        "mov {}, lr",
-        out(reg) lr_exit_fn
-    );
+unsafe extern "C" fn __nx_rrt0_entry(arg0: usize, arg1: usize, exit_function: ExitFn) {
 
     /*
     Possible entry arguments:
@@ -325,7 +328,7 @@ unsafe extern "C" fn __nx_rrt0_entry(arg0: usize, arg1: usize) {
         // Since it's a valid .text address anyway, use QueryMemory SVC to find the actual start
         let self_base_address: *const u8;
         asm!(
-            "adr {}, _start",
+            "adr {}, __nx_rrt0_entry",
             out(reg) self_base_address
         );
 
@@ -352,6 +355,6 @@ unsafe extern "C" fn __nx_rrt0_entry(arg0: usize, arg1: usize) {
         // Handle NSO/KIP/NRO normal entry
         let maybe_abi_cfg_entries_ptr = arg0 as *const hbl::AbiConfigEntry;
         let maybe_main_thread_handle = arg1;
-        normal_entry(maybe_abi_cfg_entries_ptr, maybe_main_thread_handle, lr_exit_fn);
+        normal_entry(maybe_abi_cfg_entries_ptr, maybe_main_thread_handle, exit_function);
     }
 }

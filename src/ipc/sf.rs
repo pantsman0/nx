@@ -254,7 +254,7 @@ impl Session {
             if self.object_info.is_domain() {
                 let mut ctx = CommandContext::new_client(self.object_info);
                 cmif::client::write_request_command_on_msg_buffer(&mut ctx, None, cmif::DomainCommandType::Close);
-                let _ = svc::send_sync_request(self.object_info.handle);
+                let _req_res = svc::send_sync_request(self.object_info.handle);
             }
             else if self.object_info.owns_handle {
                 let mut ctx = CommandContext::new_client(self.object_info);
@@ -264,10 +264,10 @@ impl Session {
                     CommandProtocol::Tipc => tipc::client::write_close_command_on_msg_buffer(&mut ctx)
                 };
 
-                let _ = svc::send_sync_request(self.object_info.handle);
+                let _req_res = svc::send_sync_request(self.object_info.handle);
             }
             if self.object_info.owns_handle {
-                let _ = svc::close_handle(self.object_info.handle);
+                let _close_res = svc::close_handle(self.object_info.handle);
             }
             self.object_info = ObjectInfo::new();
         }

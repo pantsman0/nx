@@ -59,9 +59,16 @@ impl PointerAndSize {
     }
 }
 
-const fn const_usize_min(a: usize, b: usize) -> usize {
+#[inline(always)]
+pub(crate) const fn const_usize_min(a: usize, b: usize) -> usize {
     // TODO: const min traits
     if a > b { b } else { a }
+}
+
+#[inline(always)]
+pub(crate) const fn const_usize_max(a: usize, b: usize) -> usize {
+    // TODO: const max traits
+    if a > b { a } else { b }
 }
 
 /// Represents a C-like string of a given size (mostly like a C `char[S]` array)

@@ -3,8 +3,10 @@
 use crate::diag::abort;
 use crate::svc;
 use crate::thread;
-use core::cell::UnsafeCell;
 use core::arch::asm;
+use core::cell::UnsafeCell;
+use core::ops::Deref;
+use core::ops::DerefMut;
 
 const HANDLE_WAIT_MASK: u32 = 0x40000000;
 
@@ -49,7 +51,7 @@ fn clear_exclusive() {
 
 fn lock_impl(handle_ref: *mut u32) {
     let thr_handle = get_current_thread_handle();
-    
+
     let mut value = load_exclusive(handle_ref);
     loop {
         if value == svc::INVALID_HANDLE {
@@ -59,7 +61,9 @@ fn lock_impl(handle_ref: *mut u32) {
             }
             break;
         }
-        if (value & HANDLE_WAIT_MASK) == 0 && store_exclusive(handle_ref, value | HANDLE_WAIT_MASK) != 0 {
+        if (value & HANDLE_WAIT_MASK) == 0
+            && store_exclusive(handle_ref, value | HANDLE_WAIT_MASK) != 0
+        {
             value = load_exclusive(handle_ref);
             continue;
         }
@@ -79,7 +83,7 @@ fn lock_impl(handle_ref: *mut u32) {
 
 fn unlock_impl(handle_ref: *mut u32) {
     let thr_handle = get_current_thread_handle();
-    
+
     let mut value = load_exclusive(handle_ref);
     loop {
         if value != thr_handle {
@@ -129,13 +133,18 @@ pub struct Mutex {
 
 impl Mutex {
     /// Creates a new [`Mutex`]
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `is_recursive`: Whether the [`Mutex`] is recursive (in that case, multiple (un)locking attempts in the same thread are allowed)
     #[inline]
     pub const fn new(is_recursive: bool) -> Self {
-        Self { value: 0, is_recursive, counter: 0, thread_handle: 0 }
+        Self {
+            value: 0,
+            is_recursive,
+            counter: 0,
+            thread_handle: 0,
+        }
     }
 
     /// Locks the [`Mutex`]
@@ -185,8 +194,7 @@ impl Mutex {
             }
             self.counter += 1;
             true
-        }
-        else {
+        } else {
             try_lock_impl(&mut self.value)
         }
     }
@@ -199,9 +207,9 @@ pub struct ScopedLock<'a> {
 
 impl<'a> ScopedLock<'a> {
     /// Creates a new [`ScopedLock`] for a given [`Mutex`]
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `lock`: The [`Mutex`] to guard
     pub fn new(lock: &'a mut Mutex) -> Self {
         lock.lock();
@@ -224,30 +232,29 @@ pub struct Locked<T: ?Sized> {
 
 impl<T> Locked<T> {
     /// Creates a new [`Locked`] with a value
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `is_recursive`: Whether the inner [`Mutex`] is recursive
     /// * `t`: The value to store
     #[inline]
     pub const fn new(is_recursive: bool, t: T) -> Self {
-        Self { lock_cell: UnsafeCell::new(Mutex::new(is_recursive)), object_cell: UnsafeCell::new(t) }
+        Self {
+            lock_cell: UnsafeCell::new(Mutex::new(is_recursive)),
+            object_cell: UnsafeCell::new(t),
+        }
     }
 
     /// Gets a reference to the inner [`Mutex`]
     #[inline]
     pub const fn get_lock(&self) -> &mut Mutex {
-        unsafe {
-            &mut *self.lock_cell.get()
-        }
+        unsafe { &mut *self.lock_cell.get() }
     }
 
     /// Gets a reference of the value, doing a lock-unlock operation in the process
     pub fn get(&self) -> &mut T {
         self.get_lock().lock();
-        let obj_ref = unsafe {
-            &mut *self.object_cell.get()
-        };
+        let obj_ref = unsafe { &mut *self.object_cell.get() };
         self.get_lock().unlock();
         obj_ref
     }
@@ -258,15 +265,22 @@ impl<T> Locked<T> {
         self.object_cell = UnsafeCell::new(t);
         self.get_lock().unlock();
     }
+
+    pub(crate) fn get_object(&self) -> &mut T {
+        unsafe { &mut *self.object_cell.get() }
+    }
+
+    pub fn get_locked(&self) -> LockGuard<T> {
+        self.get_lock().lock();
+        LockGuard { lock: &self }
+    }
 }
 
 impl<T: Copy> Locked<T> {
     /// Gets a copy of the value, doing a lock-unlock operation in the process
     pub fn get_val(&self) -> T {
         self.get_lock().lock();
-        let obj_copy = unsafe {
-            *self.object_cell.get()
-        };
+        let obj_copy = unsafe { *self.object_cell.get() };
         self.get_lock().unlock();
         obj_copy
     }
@@ -274,3 +288,20 @@ impl<T: Copy> Locked<T> {
 
 unsafe impl<T: ?Sized + Send> Sync for Locked<T> {}
 unsafe impl<T: ?Sized + Send> Send for Locked<T> {}
+
+pub struct LockGuard<'l, T> {
+    pub(crate) lock: &'l Locked<T>,
+}
+
+impl<T> Deref for LockGuard<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &*self.lock.get_object()
+    }
+}
+
+impl<T> DerefMut for LockGuard<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.lock.get_object()
+    }
+}

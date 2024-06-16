@@ -1,8 +1,12 @@
 //! Surface (gfx wrapper) implementation
 
+use ::alloc::alloc::alloc;
+use ::alloc::alloc::dealloc;
+
 use super::*;
 use crate::gpu::binder;
 use crate::gpu::ioctl;
+use crate::mem::alloc::PAGE_ALIGNMENT;
 use crate::svc;
 use crate::ipc::sf;
 use crate::service::nv;
@@ -27,7 +31,7 @@ pub struct Surface {
     application_display_service: mem::Shared<dyn vi::IApplicationDisplayService>,
     width: u32,
     height: u32,
-    buffer_data: alloc::Buffer<u8>,
+    buffer_data: PointerAndSize,
     single_buffer_size: usize,
     buffer_count: u32,
     slot_has_requested: [bool; MAX_BUFFERS],
@@ -61,12 +65,12 @@ impl Surface {
         let _ = binder.connect(ConnectionApi::Cpu, false)?;
         let vsync_event_handle = application_display_service.get().get_display_vsync_event(display_id)?;
         let buffer_event_handle = binder.get_native_handle(dispdrv::NativeHandleType::BufferEvent)?;
-        let mut surface = Self { binder, nvdrv_srv, application_display_service, width, height, buffer_data: alloc::Buffer::empty(), single_buffer_size: 0, buffer_count, slot_has_requested: [false; MAX_BUFFERS], graphic_buf: Default::default(), color_fmt, pixel_fmt, layout, display_id, layer_id, layer_destroy_fn, nvhost_fd, nvmap_fd, nvhostctrl_fd, vsync_event_handle: vsync_event_handle.handle, buffer_event_handle: buffer_event_handle.handle };
+        let mut surface = Self { binder, nvdrv_srv, application_display_service, width, height, buffer_data: PointerAndSize::empty(), single_buffer_size: 0, buffer_count, slot_has_requested: [false; MAX_BUFFERS], graphic_buf: Default::default(), color_fmt, pixel_fmt, layout, display_id, layer_id, layer_destroy_fn, nvhost_fd, nvmap_fd, nvhostctrl_fd, vsync_event_handle: vsync_event_handle.handle, buffer_event_handle: buffer_event_handle.handle };
         surface.initialize()?;
         Ok(surface)
     }
 
-    fn do_ioctl<I: ioctl::Ioctl>(&mut self, i: &mut I) -> Result<()> {
+    fn  do_ioctl<I: ioctl::Ioctl>(&mut self, i: &mut I) -> Result<()> {
         let fd = match I::get_fd() {
             ioctl::IoctlFd::NvHost => self.nvhost_fd,
             ioctl::IoctlFd::NvMap => self.nvmap_fd,
@@ -98,8 +102,8 @@ impl Surface {
         ioctl_getid.handle = ioctl_create.handle;
         self.do_ioctl(&mut ioctl_getid)?;
 
-        self.buffer_data = alloc::Buffer::new(alloc::PAGE_ALIGNMENT, buf_size)?;
-        svc::set_memory_attribute(self.buffer_data.ptr, buf_size, 8, svc::MemoryAttribute::Uncached())?;
+        self.buffer_data = unsafe {PointerAndSize::new(alloc(core::alloc::Layout::from_size_align_unchecked(buf_size, PAGE_ALIGNMENT)), buf_size)};
+        svc::set_memory_attribute(self.buffer_data.address, buf_size, 8, svc::MemoryAttribute::Uncached())?;
 
         let mut ioctl_alloc: ioctl::NvMapAlloc = Default::default();
         ioctl_alloc.handle = ioctl_create.handle;
@@ -107,7 +111,7 @@ impl Surface {
         ioctl_alloc.flags = ioctl::AllocFlags::ReadOnly;
         ioctl_alloc.align = alloc::PAGE_ALIGNMENT as u32;
         ioctl_alloc.kind = Kind::Pitch;
-        ioctl_alloc.address = self.buffer_data.ptr as usize;
+        ioctl_alloc.address = self.buffer_data.address as usize;
         self.do_ioctl(&mut ioctl_alloc)?;
 
         self.graphic_buf.header.magic = GraphicBufferHeader::MAGIC;
@@ -187,7 +191,7 @@ impl Surface {
             self.slot_has_requested[slot as usize] = true;
         }
 
-        let buf = unsafe { self.buffer_data.ptr.add(slot as usize * self.single_buffer_size) };
+        let buf = unsafe { self.buffer_data.address.add(slot as usize * self.single_buffer_size) };
         Ok((buf, self.single_buffer_size, slot, has_fences, fences))
     }
 
@@ -202,7 +206,7 @@ impl Surface {
         qbi.swap_interval = 1;
         qbi.fences = fences;
 
-        mem::flush_data_cache(self.buffer_data.ptr, self.single_buffer_size * self.buffer_count as usize);
+        mem::flush_data_cache(self.buffer_data.address, self.single_buffer_size * self.buffer_count as usize);
 
         self.binder.queue_buffer(slot, qbi)?;
         Ok(())
@@ -303,11 +307,9 @@ impl Drop for Surface {
         self.binder.decrease_refcounts();
 
         let buf_size = self.buffer_count as usize * self.single_buffer_size;
-        svc::set_memory_attribute(self.buffer_data.ptr, buf_size, 0, svc::MemoryAttribute::None());
+        svc::set_memory_attribute(self.buffer_data.address, buf_size, 0, svc::MemoryAttribute::None());
+        unsafe {dealloc(self.buffer_data.address, core::alloc::Layout::from_size_align_unchecked(self.buffer_data.size, PAGE_ALIGNMENT))};
         
-        // we know we can call release here because we're in the Drop impl
-        unsafe {self.buffer_data.release()};
-
         (self.layer_destroy_fn)(self.layer_id, self.application_display_service.clone());
 
         self.application_display_service.get().close_display(self.display_id);
