@@ -189,6 +189,53 @@ pub union EnumAsPrimitiveType<E: Copy + Clone, T: Copy + Clone> {
     enum_val: E
 }
 
+impl<E: Copy + Clone, T: Copy + Clone> crate::ipc::server::RequestCommandParameter<EnumAsPrimitiveType<E, T>> for EnumAsPrimitiveType<E, T> {
+    fn after_request_read(ctx: &mut crate::ipc::server::ServerContext) -> Result<Self> {
+        Ok(ctx.raw_data_walker.advance_get())
+    }
+}
+
+impl<E: Copy + Clone, T: Copy + Clone> crate::ipc::server::ResponseCommandParameter for EnumAsPrimitiveType<E, T> {
+    fn before_response_write(_raw: &Self, ctx: &mut crate::ipc::server::ServerContext) -> Result<()> {
+        ctx.raw_data_walker.advance::<Self>();
+        Ok(())
+    }
+
+    fn after_response_write(raw: &Self, ctx: &mut crate::ipc::server::ServerContext) -> Result<()> {
+        ctx.raw_data_walker.advance_set(*raw);
+        Ok(())
+    }
+}
+/*
+impl<E: Copy + Clone, T: Copy + Clone> crate::ipc::client::RequestCommandParameter for EnumAsPrimitiveType<E, T> {
+    fn before_request_write(
+        _raw: &Self,
+        walker: &mut crate::ipc::DataWalker,
+        _ctx: &mut crate::ipc::CommandContext,
+    ) -> Result<()> {
+        walker.advance::<Self>();
+        Ok(())
+    }
+
+    fn before_send_sync_request(
+        raw: &Self,
+        walker: &mut crate::ipc::DataWalker,
+        _ctx: &mut crate::ipc::CommandContext,
+    ) -> Result<()> {
+        walker.advance_set(raw.get_value());
+        Ok(())
+    }
+}
+
+impl<E: Copy + Clone, T: Copy + Clone> crate::ipc::client::ResponseCommandParameter<EnumAsPrimitiveType<E, T>> for EnumAsPrimitiveType<E, T> {
+    fn after_response_read(
+        walker: &mut crate::ipc::DataWalker,
+        _ctx: &mut crate::ipc::CommandContext,
+    ) -> Result<Self> {
+        Ok(walker.advance_get())
+    }
+} */
+
 impl<E: Copy + Clone, T: Copy + Clone> EnumAsPrimitiveType<E, T> {
     pub fn from(enum_val: E) -> Self {
         Self {
@@ -310,7 +357,8 @@ impl CommandMetadata {
 // TODO: think of a proper way to migrate call_self_server_command / command_fn stuff to server and avoid it being on every single IObject?
 
 pub trait IObject {
-    fn get_session(&mut self) -> &mut Session;
+    fn get_session(&self) -> &Session;
+    fn get_session_mut(&mut self) -> &mut Session;
 
     fn get_command_metadata_table(&self) -> CommandMetadataTable;
 

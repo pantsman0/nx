@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::version;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -22,6 +23,9 @@ pub enum State {
     Invalid = 6
 }
 
+crate::impl_copy_client_command_parameter!(State);
+crate::impl_copy_server_command_parameter_for_types!(ModuleId, State);
+
 ipc_sf_define_interface_trait! {
     trait IPmModule {
         initialize [0, version::VersionInterval::all()]: (id: ModuleId, dependencies: sf::InMapAliasBuffer<ModuleId>) => (event_handle: sf::CopyHandle);
@@ -34,6 +38,6 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IPmService {
-        get_pm_module [0, version::VersionInterval::all()]: () => (pm_module: mem::Shared<dyn IPmModule>);
+        get_pm_module [0, version::VersionInterval::all()]: () => (pm_module: Box<dyn IPmModule>);
     }
 }

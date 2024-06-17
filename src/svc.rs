@@ -1,7 +1,6 @@
 use crate::ipc::sf::ncm;
 use crate::result::*;
 use crate::arm;
-use crate::thread;
 use crate::util;
 use crate::version;
 use core::ptr;

@@ -1,21 +1,14 @@
 //! Allocator implementation and definitions
 
 use crate::result::*;
-use crate::sync;
-use crate::sync::ScopedLock;
-use crate::util;
-use crate::util::PointerAndSize;
 use core::mem;
-use core::ops::DerefMut;
 use core::ptr;
 use core::ptr::NonNull;
-use core::result::Result as CoreResult;
 
 extern crate alloc;
 use alloc::alloc::Allocator;
 
 use alloc::alloc::Global;
-use alloc::alloc::GlobalAlloc;
 pub use alloc::alloc::Layout;
 
 pub const PAGE_ALIGNMENT: usize = 0x1000;
@@ -57,65 +50,9 @@ pub unsafe trait AllocatorEx: Allocator {
     }
 }
 
-//unsafe impl AllocatorEx for Global {}
-use linked_list_allocator::Heap as LinkedListAllocator;
-
-struct LateInitAllocator {
-    inner: sync::Locked<(bool,LinkedListAllocator)>,
-}
-
-impl LateInitAllocator {
-    const fn new() -> Self {
-        Self {
-            inner: sync::Locked::new(false, (false, LinkedListAllocator::empty()))
-        }
-    }
-
-    unsafe fn init(&mut self, heap: util::PointerAndSize) {
-        let inner = self.inner.get();
-        debug_assert!(!inner.0, "Allocator already initialized");
-        inner.1.init(heap.address, heap.size);
-        inner.0 = true;
-    }
-}
-
-unsafe impl Allocator for LateInitAllocator {
-    fn allocate(&self, layout: Layout) -> CoreResult<NonNull<[u8]>, AllocError> {
-        let inner = self.inner.get();
-        // if compiled in debug mode, the allocator will panic when allocating without initialising the allocator
-        debug_assert!(inner.0, "Allocator not initialized");
-        // if compiled in release mode, the allocator will return an OOM error as there is no memory available for the allocator
-        if !inner.0 {
-            return Err(AllocError);
-        }
-        match inner.1.allocate_first_fit(layout) {
-            Ok(non_null_addr) => Ok(NonNull::slice_from_raw_parts(non_null_addr, layout.size())),
-            Err(_) => Err(AllocError),
-        }
-    }
-
-    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
-        let inner = self.inner.get();
-        // if compiled in debug mode, the allocator will panic when allocating without initialising the allocator
-        debug_assert!(inner.0, "Allocator not initialized");
-        inner.1.deallocate(ptr, layout);
-    }
-}
-
-unsafe impl GlobalAlloc for LateInitAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.allocate(layout).unwrap().as_ptr().as_mut_ptr()
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.deallocate(NonNull::new_unchecked(ptr), layout)
-    }
-}
-
 pub use linked_list_allocator::{LockedHeap, Heap};
 
 /// Defines and initializes a default global allocator.
-#[allow(unsused_macros)]
 #[macro_export]
 macro_rules! use_default_allocator {
     () => {

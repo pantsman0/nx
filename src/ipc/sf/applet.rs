@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::version;
 
 pub type AppletResourceUserId = u64;
@@ -20,6 +21,7 @@ pub enum ScreenShotPermission {
     Enable,
     Disable
 }
+crate::impl_copy_server_command_parameter!(ScreenShotPermission);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u32)]
@@ -69,6 +71,7 @@ pub enum AppletId {
     AppletILA1 = 0x3FD,
     AppletILA2 = 0x3FE
 }
+crate::impl_copy_server_command_parameter!(AppletId);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u32)]
@@ -79,6 +82,7 @@ pub enum LibraryAppletMode {
     BackgroundIndirectDisplay,
     AllForegroundInitiallyHidden
 }
+crate::impl_copy_server_command_parameter!(LibraryAppletMode);
 
 ipc_sf_define_interface_trait! {
     trait IStorageAccessor {
@@ -90,7 +94,7 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IStorage {
-        open [0, version::VersionInterval::all()]: () => (storage_accessor: mem::Shared<dyn IStorageAccessor>);
+        open [0, version::VersionInterval::all()]: () => (storage_accessor: Box<dyn IStorageAccessor>);
     }
 }
 
@@ -98,15 +102,15 @@ ipc_sf_define_interface_trait! {
     trait ILibraryAppletAccessor {
         get_applet_state_changed_event [0, version::VersionInterval::all()]: () => (applet_state_changed_event: sf::CopyHandle);
         start [10, version::VersionInterval::all()]: () => ();
-        push_in_data [100, version::VersionInterval::all()]: (storage: mem::Shared<dyn IStorage>) => ();
-        pop_out_data [101, version::VersionInterval::all()]: () => (storage: mem::Shared<dyn IStorage>);
+        push_in_data [100, version::VersionInterval::all()]: (storage: Box<dyn IStorage>) => ();
+        pop_out_data [101, version::VersionInterval::all()]: () => (storage: Box<dyn IStorage>);
     }
 }
 
 ipc_sf_define_interface_trait! {
     trait ILibraryAppletCreator {
-        create_library_applet [0, version::VersionInterval::all()]: (applet_id: AppletId, applet_mode: LibraryAppletMode) => (library_applet_accessor: mem::Shared<dyn ILibraryAppletAccessor>);
-        create_storage [10, version::VersionInterval::all()]: (size: usize) => (storage: mem::Shared<dyn IStorage>);
+        create_library_applet [0, version::VersionInterval::all()]: (applet_id: AppletId, applet_mode: LibraryAppletMode) => (library_applet_accessor: Box<dyn ILibraryAppletAccessor>);
+        create_storage [10, version::VersionInterval::all()]: (size: usize) => (storage: Box<dyn IStorage>);
     }
 }
 
@@ -125,14 +129,14 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait ILibraryAppletProxy {
-        get_self_controller [1, version::VersionInterval::all()]: () => (self_controller: mem::Shared<dyn ISelfController>);
-        get_window_controller [2, version::VersionInterval::all()]: () => (window_controller: mem::Shared<dyn IWindowController>);
-        get_library_applet_creator [11, version::VersionInterval::all()]: () => (library_applet_creator: mem::Shared<dyn ILibraryAppletCreator>);
+        get_self_controller [1, version::VersionInterval::all()]: () => (self_controller: Box<dyn ISelfController>);
+        get_window_controller [2, version::VersionInterval::all()]: () => (window_controller: Box<dyn IWindowController>);
+        get_library_applet_creator [11, version::VersionInterval::all()]: () => (library_applet_creator: Box<dyn ILibraryAppletCreator>);
     }
 }
 
 ipc_sf_define_interface_trait! {
     trait IAllSystemAppletProxiesService {
-        open_library_applet_proxy [201, version::VersionInterval::from(version::Version::new(3,0,0))]: (process_id: sf::ProcessId, self_process_handle: sf::CopyHandle, applet_attribute: sf::InMapAliasBuffer<AppletAttribute>) => (library_applet_proxy: mem::Shared<dyn ILibraryAppletProxy>);
+        open_library_applet_proxy [201, version::VersionInterval::from(version::Version::new(3,0,0))]: (process_id: sf::ProcessId, self_process_handle: sf::CopyHandle, applet_attribute: sf::InMapAliasBuffer<AppletAttribute>) => (library_applet_proxy: Box<dyn ILibraryAppletProxy>);
     }
 }

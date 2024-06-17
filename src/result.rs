@@ -35,6 +35,8 @@ const fn unpack_description(value: u32) -> u32 {
 pub struct ResultCode {
     value: u32
 }
+crate::impl_copy_client_command_parameter!(ResultCode);
+crate::impl_copy_server_command_parameter!(ResultCode);
 
 impl ResultCode {
     /// Creates a [`ResultCode`] from a raw value

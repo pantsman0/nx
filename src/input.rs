@@ -1,6 +1,8 @@
 //! Input utils and wrappers
 
-use crate::mem::Shared;
+use alloc::boxed::Box;
+
+
 use crate::result::*;
 use crate::service::hid;
 use crate::service::hid::shmem;
@@ -8,7 +10,6 @@ use crate::service::hid::IAppletResource;
 use crate::service::hid::IHidServer;
 use crate::ipc::sf;
 use crate::svc;
-use crate::mem;
 use crate::version;
 use crate::vmem;
 use crate::service;
@@ -224,8 +225,8 @@ impl Player {
 /// Represents a simple type for dealing with input handling
 #[allow(dead_code)]
 pub struct Context {
-    hid_service: mem::Shared<dyn IHidServer>,
-    applet_resource: mem::Shared<dyn IAppletResource>,
+    hid_service: Box<dyn IHidServer>,
+    applet_resource: Box<dyn IAppletResource>,
     supported_style_tags: hid::NpadStyleTag,
     shmem_handle: svc::Handle,
     shmem_ptr: *const u8
@@ -241,16 +242,16 @@ impl Context {
     /// * `supported_style_tags`: Supported [`NpadStyleTag`][`hid::NpadStyleTag`] flags
     /// * `supported_npad_ids`: Supported [`NpadIdType`][`hid::NpadIdType`] values
     pub fn new(supported_style_tags: hid::NpadStyleTag, supported_npad_ids: &[hid::NpadIdType]) -> Result<Self> {
-        let hid_srv: Shared<dyn IHidServer> = service::new_service_object::<hid::HidServer>()?;
-        let applet_res = hid_srv.get().create_applet_resource(sf::ProcessId::new())?;
+        let mut hid_srv: Box<dyn IHidServer> = service::new_service_object::<hid::HidServer>()?;
+        let mut applet_res = hid_srv.create_applet_resource(sf::ProcessId::new())?;
         
-        let shmem_handle = applet_res.get().get_shared_memory_handle()?;
+        let shmem_handle = applet_res.get_shared_memory_handle()?;
         let shmem_address = vmem::allocate(shmem::SHMEM_SIZE)?;
         svc::map_shared_memory(shmem_handle.handle, shmem_address, shmem::SHMEM_SIZE, svc::MemoryPermission::Read())?;
 
-        hid_srv.get().activate_npad(sf::ProcessId::new())?;
-        hid_srv.get().set_supported_npad_style_set(sf::ProcessId::new(), supported_style_tags)?;
-        hid_srv.get().set_supported_npad_id_type(sf::ProcessId::new(), sf::Buffer::from_array(supported_npad_ids))?;
+        hid_srv.activate_npad(sf::ProcessId::new())?;
+        hid_srv.set_supported_npad_style_set(sf::ProcessId::new(), supported_style_tags)?;
+        hid_srv.set_supported_npad_id_type(sf::ProcessId::new(), sf::Buffer::from_array(supported_npad_ids))?;
 
         Ok(Self {
             hid_service: hid_srv,
@@ -317,7 +318,7 @@ impl Context {
 impl Drop for Context {
     /// Destroys the [`Context`], unmapping the shared-memory and closing it, and also closing its [`IHidServer`] session
     fn drop(&mut self) {
-        let _ = self.hid_service.get().deactivate_npad(sf::ProcessId::new());
+        let _ = self.hid_service.deactivate_npad(sf::ProcessId::new());
         let _ = svc::unmap_shared_memory(self.shmem_handle, self.shmem_ptr as *mut u8, shmem::SHMEM_SIZE);
         let _ = svc::close_handle(self.shmem_handle);
     }

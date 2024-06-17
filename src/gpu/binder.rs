@@ -63,7 +63,7 @@ pub fn convert_nv_error_code(err: ErrorCode) -> Result<()> {
 /// Represents a binder object, wrapping transaction functionality
 pub struct Binder {
     handle: dispdrv::BinderHandle,
-    hos_binder_driver: mem::Shared<dyn dispdrv::IHOSBinderDriver>,
+    hos_binder_driver: Box<dyn dispdrv::IHOSBinderDriver>,
 }
 
 impl Binder {
@@ -74,7 +74,7 @@ impl Binder {
     /// * `handle`: Binder handle to use
     /// * `hos_binder_driver`: [`IHOSBinderDriver`][`dispdrv::IHOSBinderDriver`] object
     #[inline]
-    pub const fn new(handle: dispdrv::BinderHandle, hos_binder_driver: mem::Shared<dyn dispdrv::IHOSBinderDriver>) -> Result<Self> {
+    pub const fn new(handle: dispdrv::BinderHandle, hos_binder_driver: Box<dyn dispdrv::IHOSBinderDriver>) -> Result<Self> {
         Ok(Self { handle, hos_binder_driver })
     }
 
@@ -90,7 +90,7 @@ impl Binder {
 
     fn transact_parcel_impl(&mut self, transaction_id: dispdrv::ParcelTransactionId, payload: parcel::ParcelPayload) -> Result<parcel::Parcel> {
         let response_payload = parcel::ParcelPayload::new();
-        self.hos_binder_driver.get().transact_parcel(self.handle, transaction_id, 0, sf::Buffer::from_other_var(&payload), sf::Buffer::from_other_var(&response_payload))?;
+        self.hos_binder_driver.transact_parcel(self.handle, transaction_id, 0, sf::Buffer::from_other_var(&payload), sf::Buffer::from_other_var(&response_payload))?;
         
         let mut parcel = parcel::Parcel::new();
         parcel.load_from(response_payload);
@@ -109,20 +109,20 @@ impl Binder {
     }
 
     /// Gets this [`Binder`]'s underlying [`IHOSBinderDriver`][`dispdrv::IHOSBinderDriver`] object
-    pub fn get_hos_binder_driver(&mut self) -> mem::Shared<dyn dispdrv::IHOSBinderDriver> {
-        self.hos_binder_driver.clone()
+    pub fn get_hos_binder_driver(&mut self) -> &mut Box<dyn dispdrv::IHOSBinderDriver> {
+        &mut self.hos_binder_driver
     }
 
     /// Increases the [`Binder`]'s reference counts
     pub fn increase_refcounts(&mut self) -> Result<()> {
-        self.hos_binder_driver.get().adjust_refcount(self.handle, 1, dispdrv::RefcountType::Weak)?;
-        self.hos_binder_driver.get().adjust_refcount(self.handle, 1, dispdrv::RefcountType::Strong)
+        self.hos_binder_driver.adjust_refcount(self.handle, 1, dispdrv::RefcountType::Weak)?;
+        self.hos_binder_driver.adjust_refcount(self.handle, 1, dispdrv::RefcountType::Strong)
     }
 
     /// Decreases the [`Binder`]'s reference counts
     pub fn decrease_refcounts(&mut self) -> Result<()> {
-        self.hos_binder_driver.get().adjust_refcount(self.handle, -1, dispdrv::RefcountType::Weak)?;
-        self.hos_binder_driver.get().adjust_refcount(self.handle, -1, dispdrv::RefcountType::Strong)
+        self.hos_binder_driver.adjust_refcount(self.handle, -1, dispdrv::RefcountType::Weak)?;
+        self.hos_binder_driver.adjust_refcount(self.handle, -1, dispdrv::RefcountType::Strong)
     }
 
     /// Performs a connection
@@ -272,6 +272,6 @@ impl Binder {
     /// 
     /// * `handle_type`: The [`NativeHandleType`][`dispdrv::NativeHandleType`] value
     pub fn get_native_handle(&mut self, handle_type: dispdrv::NativeHandleType) -> Result<sf::CopyHandle> {
-        self.hos_binder_driver.get().get_native_handle(self.handle, handle_type)
+        self.hos_binder_driver.get_native_handle(self.handle, handle_type)
     }
 }

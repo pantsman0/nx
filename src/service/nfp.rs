@@ -1,10 +1,11 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::applet;
 use crate::ipc::sf::sm;
 use crate::ipc::sf::hid;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
 
 pub use crate::ipc::sf::nfp::*;
 
@@ -115,8 +116,8 @@ impl IUser for User {
 ipc_client_define_object_default!(UserManager);
 
 impl IUserManager for UserManager {
-    fn create_user_interface(&mut self) -> Result<mem::Shared<dyn IUser>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] () => (user: mem::Shared<User>))
+    fn create_user_interface(&mut self) -> Result<Box<dyn IUser>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] () => (user: Box<User>))
     }
 }
 
@@ -245,8 +246,8 @@ impl ISystem for System {
 ipc_client_define_object_default!(SystemManager);
 
 impl ISystemManager for SystemManager {
-    fn create_system_interface(&mut self) -> Result<mem::Shared<dyn ISystem>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] () => (system: mem::Shared<System>))
+    fn create_system_interface(&mut self) -> Result<::alloc::boxed::Box<dyn ISystem>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] () => (system: Box<System>))
     }
 }
 
@@ -427,8 +428,8 @@ impl IDebug for Debug {
 ipc_client_define_object_default!(DebugManager);
 
 impl IDebugManager for DebugManager {
-    fn create_debug_interface(&mut self) -> Result<mem::Shared<dyn IDebug>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] () => (debug: mem::Shared<Debug>))
+    fn create_debug_interface(&mut self) -> Result<::alloc::boxed::Box<dyn IDebug>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] () => (debug: Box<Debug>))
     }
 }
 

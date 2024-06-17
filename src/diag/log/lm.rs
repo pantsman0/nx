@@ -1,8 +1,9 @@
 //! `LogManager` logger implementation
 
+use alloc::boxed::Box;
+
 use super::*;
 use crate::rrt0;
-use crate::mem;
 use crate::ipc::sf;
 use crate::service;
 use crate::service::lm;
@@ -12,26 +13,21 @@ use crate::svc;
 
 /// Represents a logger through [`LogService`][`lm::LogService`] services
 pub struct LmLogger {
-    logger: Option<mem::Shared<dyn ILogger>>
+    logger: Option<Box<dyn ILogger>>
+}
+
+
+fn get_service_logger() -> Option<Box<dyn ILogger>> {
+    service::new_service_object::<lm::LogService>().ok()?.open_logger(sf::ProcessId::new()).ok()
 }
 
 impl Logger for LmLogger {
     fn new() -> Self {
-        let logger = match service::new_service_object::<lm::LogService>() {
-            Ok(log_srv) => {
-                match log_srv.get().open_logger(sf::ProcessId::new()) {
-                    Ok(logger_obj) => Some(logger_obj),
-                    Err(_) => None
-                }
-            },
-            Err(_) => None
-        };
-
-        Self { logger }
+        Self {logger: get_service_logger() }
     }
 
     fn log(&mut self, metadata: &LogMetadata) {
-        if let Some(logger_obj) = &self.logger {
+        if let Some(logger_obj) = self.logger.as_mut() {
             let mut log_packet = logpacket::LogPacket::new();
 
             if let Ok(process_id) = svc::get_process_id(svc::CURRENT_PROCESS_PSEUDO_HANDLE) {
@@ -62,7 +58,7 @@ impl Logger for LmLogger {
             log_packet.set_thread_name(String::from(thread_name));
 
             for packet in log_packet.encode_packet() {
-                let _ = logger_obj.get().log(sf::Buffer::from_array(&packet));
+                let _ = logger_obj.log(sf::Buffer::from_array(&packet));
             }
         }
     }

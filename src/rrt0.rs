@@ -31,9 +31,7 @@
 use crate::elf;
 use crate::result::*;
 use crate::svc;
-use crate::mem::alloc;
 use crate::svc::Handle;
-use crate::sync;
 use crate::util;
 use crate::hbl;
 use crate::thread;
@@ -55,7 +53,6 @@ use crate::service::set::ISystemSettingsServer;
 use core::ptr;
 use core::mem;
 use core::arch::asm;
-use core::ptr::NonNull;
 
 // These functions must be implemented by any binary using this crate
 
@@ -171,9 +168,9 @@ fn initialize_version(hbl_hos_version_opt: Option<hbl::Version>) {
     else {
         #[cfg(feature = "services")]
         {
-            let set_sys = service::new_service_object::<set::SystemSettingsServer>().unwrap();
+            let mut set_sys = service::new_service_object::<set::SystemSettingsServer>().unwrap();
             let fw_version: set::FirmwareVersion = Default::default();
-            set_sys.get().get_firmware_version(sf::Buffer::from_var(&fw_version)).unwrap();
+            set_sys.get_firmware_version(sf::Buffer::from_var(&fw_version)).unwrap();
 
             let version = version::Version::new(fw_version.major, fw_version.minor, fw_version.micro);
             version::set_version(version);

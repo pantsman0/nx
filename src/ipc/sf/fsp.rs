@@ -1,8 +1,11 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::util;
 use crate::version;
+
+//use dyn_clone::DynClone;
 
 pub mod rc;
 
@@ -43,6 +46,12 @@ define_bit_enum! {
     }
 }
 
+crate::impl_copy_server_command_parameter!(FileOpenMode);
+crate::impl_copy_server_command_parameter!(DirectoryOpenMode);
+crate::impl_copy_server_command_parameter!(FileAttribute);
+crate::impl_copy_server_command_parameter!(FileReadOption);
+crate::impl_copy_server_command_parameter!(FileWriteOption);
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(u8)]
 pub enum DirectoryEntryType {
@@ -50,6 +59,8 @@ pub enum DirectoryEntryType {
     Directory = 0,
     File = 1
 }
+
+crate::impl_copy_client_command_parameter!(DirectoryEntryType);
 
 pub type Path = util::CString<0x301>;
 
@@ -74,6 +85,7 @@ pub struct FileTimeStampRaw {
     pub is_local_time: bool,
     pub pad: [u8; 7]
 }
+crate::impl_copy_client_command_parameter!(FileTimeStampRaw);
 const_assert!(core::mem::size_of::<FileTimeStampRaw>() == 0x20);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -84,6 +96,7 @@ pub enum QueryId {
     IsSignedSystemPartitionOnSdCardValid = 2,
     QueryUnpreparedFileInformation = 3
 }
+crate::impl_copy_server_command_parameter!(QueryId);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(C)]
@@ -93,6 +106,7 @@ pub struct FileQueryRangeInfo {
     pub reserved_1: [u8; 0x20],
     pub reserved_2: [u8; 0x18]
 }
+crate::impl_copy_client_command_parameter!(FileQueryRangeInfo);
 const_assert!(core::mem::size_of::<FileQueryRangeInfo>() == 0x40);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -107,6 +121,7 @@ pub enum OperationId {
     SetLazyLoadPriority = 6,
     ReadLazyLoadFileForciblyForDebug = 10001
 }
+crate::impl_copy_server_command_parameter!(OperationId);
 
 ipc_sf_define_interface_trait! {
     trait IFile {
@@ -127,6 +142,8 @@ ipc_sf_define_interface_trait! {
     }
 }
 
+
+//dyn_clone::clone_trait_object!(IFileSystem);
 ipc_sf_define_interface_trait! {
     trait IFileSystem {
         create_file [0, version::VersionInterval::all()]: (attribute: FileAttribute, size: usize, path_buf: sf::InFixedPointerBuffer<Path>) => ();
@@ -137,8 +154,8 @@ ipc_sf_define_interface_trait! {
         rename_file [5, version::VersionInterval::all()]: (old_path_buf: sf::InFixedPointerBuffer<Path>, new_path_buf: sf::InFixedPointerBuffer<Path>) => ();
         rename_directory [6, version::VersionInterval::all()]: (old_path_buf: sf::InFixedPointerBuffer<Path>, new_path_buf: sf::InFixedPointerBuffer<Path>) => ();
         get_entry_type [7, version::VersionInterval::all()]: (path_buf: sf::InFixedPointerBuffer<Path>) => (entry_type: DirectoryEntryType);
-        open_file [8, version::VersionInterval::all()]: (mode: FileOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) => (file: mem::Shared<dyn IFile>);
-        open_directory [9, version::VersionInterval::all()]: (mode: DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) => (dir: mem::Shared<dyn IDirectory>);
+        open_file [8, version::VersionInterval::all()]: (mode: FileOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) => (file: Box<dyn IFile>);
+        open_directory [9, version::VersionInterval::all()]: (mode: DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) => (dir: Box<dyn IDirectory>);
         commit [10, version::VersionInterval::all()]: () => ();
         get_free_space_size [11, version::VersionInterval::all()]: (path_buf: sf::InFixedPointerBuffer<Path>) => (size: usize);
         get_total_space_size [12, version::VersionInterval::all()]: (path_buf: sf::InFixedPointerBuffer<Path>) => (size: usize);
@@ -151,7 +168,7 @@ ipc_sf_define_interface_trait! {
 ipc_sf_define_interface_trait! {
     trait IFileSystemProxy {
         set_current_process [1, version::VersionInterval::all()]: (process_id: sf::ProcessId) => ();
-        open_sd_card_filesystem [18, version::VersionInterval::all()]: () => (sd_filesystem: mem::Shared<dyn IFileSystem>);
+        open_sd_card_filesystem [18, version::VersionInterval::all()]: () => (sd_filesystem: Box<dyn IFileSystem>);
         output_access_log_to_sd_card [1006, version::VersionInterval::all()]: (log_buf: sf::InMapAliasBuffer<u8>) => ();
     }
 }

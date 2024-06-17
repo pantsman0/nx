@@ -1,9 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::sm;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
-
 pub use crate::ipc::sf::lm::*;
 
 ipc_client_define_object_default!(Logger);
@@ -21,8 +21,8 @@ impl ILogger for Logger {
 ipc_client_define_object_default!(LogService);
 
 impl ILogService for LogService {
-    fn open_logger(&mut self, process_id: sf::ProcessId) -> Result<mem::Shared<dyn ILogger>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] (process_id) => (logger: mem::Shared<Logger>))
+    fn open_logger(&mut self, process_id: sf::ProcessId) -> Result<Box<dyn ILogger>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] (process_id) => (logger: Box<Logger>))
     }
 }
 

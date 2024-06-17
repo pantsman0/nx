@@ -63,8 +63,8 @@ fn do_abort(level: AbortLevel, rc: ResultCode) {
         #[cfg(feature = "services")]
         {
             match service::new_service_object::<fatal::Service>() {
-                Ok(fatal) => {
-                    let _ = fatal.get().throw_fatal_with_policy(rc, fatal::FatalPolicy::ErrorScreen, sf::ProcessId::new());
+                Ok(mut fatal) => {
+                    let _ = fatal.throw_fatal_with_policy(rc, fatal::FatalPolicy::ErrorScreen, sf::ProcessId::new());
                 },
                 _ => {}
             };

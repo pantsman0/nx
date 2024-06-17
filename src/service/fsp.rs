@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 
 pub use crate::ipc::sf::fsp::*;
 
@@ -83,12 +84,12 @@ impl IFileSystem for FileSystem {
         ipc_client_send_request_command!([self.session.object_info; 7] (path_buf) => (entry_type: DirectoryEntryType))
     }
     
-    fn open_file(&mut self, mode: FileOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) -> Result<mem::Shared<dyn IFile>> {
-        ipc_client_send_request_command!([self.session.object_info; 8] (mode, path_buf) => (file: mem::Shared<File>))
+    fn open_file(&mut self, mode: FileOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) -> Result<::alloc::boxed::Box<dyn IFile>> {
+        ipc_client_send_request_command!([self.session.object_info; 8] (mode, path_buf) => (file: Box<File>))
     }
 
-    fn open_directory(&mut self, mode: DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) -> Result<mem::Shared<dyn IDirectory>> {
-        ipc_client_send_request_command!([self.session.object_info; 9] (mode, path_buf) => (dir: mem::Shared<Directory>))
+    fn open_directory(&mut self, mode: DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<Path>) -> Result<::alloc::boxed::Box<dyn IDirectory>> {
+        ipc_client_send_request_command!([self.session.object_info; 9] (mode, path_buf) => (dir: Box<Directory>))
     }
 
     fn commit(&mut self) -> Result<()> {

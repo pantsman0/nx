@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::util;
 use crate::ipc::sf::applet;
 use crate::ipc::sf::dispdrv;
@@ -40,6 +41,9 @@ pub enum LayerStackId {
     Null
 }
 
+
+crate::impl_copy_server_command_parameter_for_types!(LayerFlags, DisplayName, DisplayServiceMode, LayerStackId);
+
 ipc_sf_define_interface_trait! {
     trait IManagerDisplayService {
         create_managed_layer [2010, version::VersionInterval::all()]: (flags: LayerFlags, display_id: DisplayId, aruid: applet::AppletResourceUserId) => (id: LayerId);
@@ -61,9 +65,9 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IApplicationDisplayService {
-        get_relay_service [100, version::VersionInterval::all()]: () => (relay_service: mem::Shared<dyn dispdrv::IHOSBinderDriver>);
-        get_system_display_service [101, version::VersionInterval::all()]: () => (system_display_service: mem::Shared<dyn ISystemDisplayService>);
-        get_manager_display_service [102, version::VersionInterval::all()]: () => (manager_display_service: mem::Shared<dyn IManagerDisplayService>);
+        get_relay_service [100, version::VersionInterval::all()]: () => (relay_service: Box<dyn dispdrv::IHOSBinderDriver>);
+        get_system_display_service [101, version::VersionInterval::all()]: () => (system_display_service: Box<dyn ISystemDisplayService>);
+        get_manager_display_service [102, version::VersionInterval::all()]: () => (manager_display_service: Box<dyn IManagerDisplayService>);
         open_display [1010, version::VersionInterval::all()]: (name: DisplayName) => (id: DisplayId);
         close_display [1020, version::VersionInterval::all()]: (id: DisplayId) => ();
         open_layer [2020, version::VersionInterval::all()]: (name: DisplayName, id: LayerId, aruid: sf::ProcessId, out_native_window: sf::OutMapAliasBuffer<u8>) => (native_window_size: usize);
@@ -75,18 +79,18 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IApplicationRootService {
-        get_display_service [0, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: mem::Shared<dyn IApplicationDisplayService>);
+        get_display_service [0, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: Box<dyn IApplicationDisplayService>);
     }
 }
 
 ipc_sf_define_interface_trait! {
     trait ISystemRootService {
-        get_display_service [1, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: mem::Shared<dyn IApplicationDisplayService>);
+        get_display_service [1, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: Box<dyn IApplicationDisplayService>);
     }
 }
 
 ipc_sf_define_interface_trait! {
     trait IManagerRootService {
-        get_display_service [2, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: mem::Shared<dyn IApplicationDisplayService>);
+        get_display_service [2, version::VersionInterval::all()]: (mode: DisplayServiceMode) => (display_service: Box<dyn IApplicationDisplayService>);
     }
 }

@@ -1,8 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::sm;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
 
 pub use crate::ipc::sf::psc::*;
 
@@ -33,8 +34,8 @@ impl IPmModule for PmModule {
 ipc_client_define_object_default!(PmService);
 
 impl IPmService for PmService {
-    fn get_pm_module(&mut self) -> Result<mem::Shared<dyn IPmModule>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] () => (pm_module: mem::Shared<PmModule>))
+    fn get_pm_module(&mut self) -> Result<Box<dyn IPmModule>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] () => (pm_module: Box<PmModule>))
     }
 }
 

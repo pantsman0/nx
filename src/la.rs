@@ -37,7 +37,7 @@ pub struct CommonArguments {
 
 /// Represents a wrapper type for using library applets
 pub struct LibraryAppletHolder {
-    accessor: mem::Shared<dyn ILibraryAppletAccessor>,
+    accessor: Box<dyn ILibraryAppletAccessor>,
     state_changed_event_handle: svc::Handle
 }
 
@@ -45,7 +45,7 @@ impl LibraryAppletHolder {
     /// Creates a [`LibraryAppletHolder`] from an existing [`ILibraryAppletAccessor`] shared object
     /// 
     /// This shouldn't be manually created unless the accessor object was obtained manually (see [`create_library_applet`])
-    pub fn new(accessor: mem::Shared<dyn ILibraryAppletAccessor>) -> Result<Self> {
+    pub fn new(accessor: Box<dyn ILibraryAppletAccessor>) -> Result<Self> {
         let state_changed_event_h = accessor.get().get_applet_state_changed_event()?;
 
         Ok(Self {
@@ -56,13 +56,13 @@ impl LibraryAppletHolder {
 
     /// Gets the underlying [`ILibraryAppletAccessor`] shared object
     #[inline]
-    pub fn get_accessor(&self) -> mem::Shared<dyn ILibraryAppletAccessor> {
+    pub fn get_accessor(&self) -> Box<dyn ILibraryAppletAccessor> {
         self.accessor.clone()
     }
 
     /// Pushes an input [`IStorage`] shared object to the library applet
     #[inline]
-    pub fn push_in_data_storage(&mut self, storage: mem::Shared<dyn IStorage>) -> Result<()> {
+    pub fn push_in_data_storage(&mut self, storage: Box<dyn IStorage>) -> Result<()> {
         self.accessor.get().push_in_data(storage)
     }
     
@@ -91,7 +91,7 @@ impl LibraryAppletHolder {
 
     /// Pops an output [`IStorage`] shared object from the library applet
     #[inline]
-    pub fn pop_out_data_storage(&mut self) -> Result<mem::Shared<dyn IStorage>> {
+    pub fn pop_out_data_storage(&mut self) -> Result<::alloc::boxed::Box<dyn IStorage>> {
         self.accessor.get().pop_out_data()
     }
 
@@ -111,7 +111,7 @@ impl Drop for LibraryAppletHolder {
     }
 }
 
-static mut G_CREATOR: sync::Locked<Option<mem::Shared<dyn ILibraryAppletCreator>>> = sync::Locked::new(false, None);
+static mut G_CREATOR: sync::Locked<Option<Box<dyn ILibraryAppletCreator>>> = sync::Locked::new(false, None);
 
 /// Initializes library applet support with the provided [`ILibraryAppletCreator`] shared object
 /// 
@@ -119,7 +119,7 @@ static mut G_CREATOR: sync::Locked<Option<mem::Shared<dyn ILibraryAppletCreator>
 /// 
 /// * `creator`: The shared object to use globally
 #[inline]
-pub fn initialize(creator: mem::Shared<dyn ILibraryAppletCreator>) {
+pub fn initialize(creator: Box<dyn ILibraryAppletCreator>) {
     unsafe {
         G_CREATOR.set(Some(creator));
     }
@@ -145,7 +145,7 @@ pub fn finalize() {
 /// 
 /// This will fail with [`ResultNotInitialized`][`super::rc::ResultNotInitialized`] if library applet support isn't initialized
 #[inline]
-pub fn get_creator() -> Result<&'static mem::Shared<dyn ILibraryAppletCreator>> {
+pub fn get_creator() -> Result<&'static Box<dyn ILibraryAppletCreator>> {
     unsafe {
         G_CREATOR.get().as_ref().ok_or(super::rc::ResultNotInitialized::make())
     }
@@ -158,7 +158,7 @@ pub fn get_creator() -> Result<&'static mem::Shared<dyn ILibraryAppletCreator>> 
 /// # Arguments
 /// 
 /// * `storage`: The storage to read from
-pub fn read_storage<T: Copy>(storage: mem::Shared<dyn IStorage>) -> Result<T> {
+pub fn read_storage<T: Copy>(storage: Box<dyn IStorage>) -> Result<T> {
     let mut t = unsafe { cmem::zeroed::<T>() };
 
     let storage_accessor = storage.get().open()?;
@@ -175,7 +175,7 @@ pub fn read_storage<T: Copy>(storage: mem::Shared<dyn IStorage>) -> Result<T> {
 /// 
 /// * `storage`: The storage to write to
 /// * `t`: The value to write
-pub fn write_storage<T: Copy>(storage: mem::Shared<dyn IStorage>, t: T) -> Result<()> {
+pub fn write_storage<T: Copy>(storage: Box<dyn IStorage>, t: T) -> Result<()> {
     result_return_unless!(is_initialized(), super::rc::ResultNotInitialized);
 
     let storage_accessor = storage.get().open()?;
@@ -193,7 +193,7 @@ pub fn write_storage<T: Copy>(storage: mem::Shared<dyn IStorage>, t: T) -> Resul
 /// # Arguments
 /// 
 /// * `t`: The value to write
-pub fn create_write_storage<T: Copy>(t: T) -> Result<mem::Shared<dyn IStorage>> {
+pub fn create_write_storage<T: Copy>(t: T) -> Result<::alloc::boxed::Box<dyn IStorage>> {
     result_return_unless!(is_initialized(), super::rc::ResultNotInitialized);
 
     let storage = get_creator()?.get().create_storage(cmem::size_of::<T>())?;

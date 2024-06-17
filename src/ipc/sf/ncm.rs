@@ -1,13 +1,16 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::version;
 use crate::ipc::sf;
-use crate::mem;
 use crate::util::CString;
 use core::fmt::{Display, Debug, Formatter, Result as FmtResult};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(C)]
 pub struct ProgramId(pub u64);
+crate::impl_copy_client_command_parameter!(ProgramId);
+crate::impl_copy_server_command_parameter!(ProgramId);
 
 impl Display for ProgramId {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -24,6 +27,8 @@ impl Debug for ProgramId {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[repr(C)]
 pub struct ApplicationId(pub u64);
+crate::impl_copy_client_command_parameter!(ApplicationId);
+crate::impl_copy_server_command_parameter!(ApplicationId);
 
 impl Display for ApplicationId {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
@@ -49,6 +54,7 @@ pub enum StorageId {
     SdCard = 5,
     Any = 6
 }
+crate::impl_copy_server_command_parameter!(StorageId);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(u8)]
@@ -65,6 +71,7 @@ pub enum ContentMetaType {
     AddOnContent = 0x82,
     Delta = 0x83
 }
+crate::impl_copy_server_command_parameter!(ContentMetaType);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(u8)]
@@ -78,6 +85,7 @@ pub enum ContentType {
     LegalInformation = 5,
     DeltaFragment = 6
 }
+crate::impl_copy_server_command_parameter!(ContentType);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(u8)]
@@ -87,6 +95,7 @@ pub enum ContentInstallType {
     FragmentOnly = 0x1,
     Unknown = 0x7
 }
+crate::impl_copy_server_command_parameter!(ContentInstallType);
 
 pub type ContentPath = CString<0x301>;
 
@@ -98,6 +107,7 @@ pub struct ContentMetaKey {
     pub meta_type: ContentMetaType,
     pub install_type: ContentInstallType
 }
+crate::impl_copy_server_command_parameter!(ContentMetaKey);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(C)]
@@ -111,6 +121,7 @@ pub struct ApplicationContentMetaKey {
 pub struct ContentId {
     pub id: [u8; 0x10]
 }
+crate::impl_copy_server_command_parameter!(ContentId);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(C)]
@@ -175,6 +186,6 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IContentManager {
-        open_content_meta_database [0, version::VersionInterval::all()]: (storage_id: StorageId) => (meta_db: mem::Shared<dyn IContentMetaDatabase>);
+        open_content_meta_database [0, version::VersionInterval::all()]: (storage_id: StorageId) => (meta_db: Box<dyn IContentMetaDatabase>);
     }
 }

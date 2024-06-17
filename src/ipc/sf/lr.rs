@@ -1,7 +1,8 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::version;
 use crate::ipc::sf;
-use crate::mem;
 use super::ncm;
 
 ipc_sf_define_interface_trait! {
@@ -21,7 +22,7 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait ILocationResolverManager {
-        open_location_resolver [0, version::VersionInterval::all()]: (storage_id: ncm::StorageId) => (resolver: mem::Shared<dyn ILocationResolver>);
-        open_registered_location_resolver [1, version::VersionInterval::all()]: () => (resolver: mem::Shared<dyn IRegisteredLocationResolver>);
+        open_location_resolver [0, version::VersionInterval::all()]: (storage_id: ncm::StorageId) => (resolver: Box<dyn ILocationResolver>);
+        open_registered_location_resolver [1, version::VersionInterval::all()]: () => (resolver: Box<dyn IRegisteredLocationResolver>);
     }
 }

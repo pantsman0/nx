@@ -1,7 +1,8 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf::{self, sm};
 use crate::service;
-use crate::mem;
 use crate::ipc::sf::usb;
 
 pub use crate::ipc::sf::usb::hs::*;
@@ -121,12 +122,12 @@ impl IClientIfSession for ClientIfSession {
         ipc_client_send_request_command!([self.session.object_info; 8] (unk) => ())
     }
 
-    fn open_usb_ep_deprecated(&mut self, max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) -> Result<(usb::EndPointDescriptor, mem::Shared<dyn IClientEpSession>)> {
-        ipc_client_send_request_command!([self.session.object_info; 4] (max_urb_count, ep_type, ep_number, ep_direction, max_xfer_size) => (ep_desc: usb::EndPointDescriptor, ep_session: mem::Shared<ClientEpSession>))
+    fn open_usb_ep_deprecated(&mut self, max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) -> Result<(usb::EndPointDescriptor, Box<dyn IClientEpSession>)> {
+        ipc_client_send_request_command!([self.session.object_info; 4] (max_urb_count, ep_type, ep_number, ep_direction, max_xfer_size) => (ep_desc: usb::EndPointDescriptor, ep_session: Box<ClientEpSession>))
     }
 
-    fn open_usb_ep(&mut self, max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) -> Result<(usb::EndPointDescriptor, mem::Shared<dyn IClientEpSession>)> {
-        ipc_client_send_request_command!([self.session.object_info; 9] (max_urb_count, ep_type, ep_number, ep_direction, max_xfer_size) => (ep_desc: usb::EndPointDescriptor, ep_session: mem::Shared<ClientEpSession>))
+    fn open_usb_ep(&mut self, max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) -> Result<(usb::EndPointDescriptor, Box<dyn IClientEpSession>)> {
+        ipc_client_send_request_command!([self.session.object_info; 9] (max_urb_count, ep_type, ep_number, ep_direction, max_xfer_size) => (ep_desc: usb::EndPointDescriptor, ep_session: Box<ClientEpSession>))
     }
 }
 
@@ -185,12 +186,12 @@ impl IClientRootSession for ClientRootSession {
         ipc_client_send_request_command!([self.session.object_info; 6] () => (event_handle: sf::CopyHandle))
     }
 
-    fn acquire_usb_if_deprecated(&mut self, id: u32, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) -> Result<mem::Shared<dyn IClientIfSession>> {
-        ipc_client_send_request_command!([self.session.object_info; 6] (id, out_profile_buf) => (if_session: mem::Shared<ClientIfSession>))
+    fn acquire_usb_if_deprecated(&mut self, id: u32, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) -> Result<::alloc::boxed::Box<dyn IClientIfSession>> {
+        ipc_client_send_request_command!([self.session.object_info; 6] (id, out_profile_buf) => (if_session: Box<ClientIfSession>))
     }
 
-    fn acquire_usb_if(&mut self, id: u32, out_info_buf: sf::OutMapAliasBuffer<InterfaceInfo>, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) -> Result<mem::Shared<dyn IClientIfSession>> {
-        ipc_client_send_request_command!([self.session.object_info; 7] (id, out_info_buf, out_profile_buf) => (if_session: mem::Shared<ClientIfSession>))
+    fn acquire_usb_if(&mut self, id: u32, out_info_buf: sf::OutMapAliasBuffer<InterfaceInfo>, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) -> Result<::alloc::boxed::Box<dyn IClientIfSession>> {
+        ipc_client_send_request_command!([self.session.object_info; 7] (id, out_info_buf, out_profile_buf) => (if_session: Box<ClientIfSession>))
     }
 
     fn get_descriptor_string(&mut self, unk_1: u8, unk_2: bool, unk_maybe_id: u32, out_desc_buf: sf::OutMapAliasBuffer<u8>) -> Result<u32> {

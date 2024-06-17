@@ -2,6 +2,7 @@ use crate::{result::*, util};
 use crate::ipc::sf;
 use crate::version;
 
+
 pub mod mitm;
 
 pub mod rc;
@@ -12,6 +13,9 @@ pub union ServiceName {
     pub value: u64,
     pub name: util::CString<0x8>
 }
+
+crate::impl_copy_server_command_parameter!(ServiceName);
+
 const_assert!(core::mem::size_of::<ServiceName>() == 0x8);
 
 impl ServiceName {

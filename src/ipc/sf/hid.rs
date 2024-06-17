@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::version;
 
 pub mod shmem;
@@ -500,6 +501,8 @@ define_bit_enum! {
     }
 }
 
+crate::impl_copy_server_command_parameter_for_types!(NpadStyleTag, NpadJoyDeviceType, NpadIdType);
+
 ipc_sf_define_interface_trait! {
     trait IAppletResource {
         get_shared_memory_handle [1, version::VersionInterval::all()]: () => (shmem_handle: sf::CopyHandle);
@@ -508,7 +511,7 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IHidServer {
-        create_applet_resource [0, version::VersionInterval::all()]: (process_id: sf::ProcessId) => (applet_resource: mem::Shared<dyn IAppletResource>);
+        create_applet_resource [0, version::VersionInterval::all()]: (process_id: sf::ProcessId) => (applet_resource: Box<dyn IAppletResource>);
         set_supported_npad_style_set [100, version::VersionInterval::all()]: (process_id: sf::ProcessId, npad_style_tag: NpadStyleTag) => ();
         set_supported_npad_id_type [102, version::VersionInterval::all()]: (process_id: sf::ProcessId, npad_ids: sf::InPointerBuffer<NpadIdType>) => ();
         activate_npad [103, version::VersionInterval::all()]: (process_id: sf::ProcessId) => ();

@@ -20,14 +20,14 @@
 #[macro_export]
 macro_rules! ipc_sf_define_interface_trait {
     (
-        trait $intf:ident {
+        trait $intf:ident $(:  $($impl_name:ident)* )? {
             $(
                 $name:ident [$rq_id:expr, $ver_intv:expr]: ( $( $in_param_name:ident: $in_param_type:ty ),* ) => ( $( $out_param_name:ident: $out_param_type:ty ),* )
             );* $(;)* // Note: trick to allow last trailing ';' for proper styling
         }
     ) => {
         paste::paste! {
-            pub trait $intf: $crate::ipc::sf::IObject {
+            pub trait $intf: $( $($impl_name +)*)? $crate::ipc::sf::IObject {
                 $(
                     #[allow(unused_parens)]
                     fn $name(&mut self, $( $in_param_name: $in_param_type ),* ) -> $crate::result::Result<( $( $out_param_type ),* )>;

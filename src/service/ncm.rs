@@ -102,8 +102,8 @@ impl IContentMetaDatabase for ContentMetaDatabase {
 ipc_client_define_object_default!(ContentManager);
 
 impl IContentManager for ContentManager {
-    fn open_content_meta_database(&mut self, storage_id: StorageId) -> Result<mem::Shared<dyn IContentMetaDatabase>> {
-        ipc_client_send_request_command!([self.session.object_info; 5] (storage_id) => (meta_db: mem::Shared<ContentMetaDatabase>))
+    fn open_content_meta_database(&mut self, storage_id: StorageId) -> Result<Box<dyn IContentMetaDatabase>> {
+        ipc_client_send_request_command!([self.session.object_info; 5] (storage_id) => (meta_db: Box<ContentMetaDatabase>))
     }
 }
 

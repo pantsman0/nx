@@ -3,7 +3,7 @@
 use crate::ipc::server;
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
+use alloc::boxed::Box;
 use alloc::string::String;
 use crate::ipc::sf::fsp;
 use crate::ipc::sf::fsp::IFileSystem;
@@ -39,7 +39,11 @@ impl FileSystem {
 impl sf::IObject for FileSystem {
     ipc_sf_object_impl_default_command_metadata!();
 
-    fn get_session(&mut self) -> &mut sf::Session {
+    fn get_session(&self) -> &sf::Session {
+        &self.dummy_session
+    }
+
+    fn get_session_mut(&mut self) -> &mut sf::Session {
         &mut self.dummy_session
     }
 }
@@ -87,16 +91,16 @@ impl IFileSystem for FileSystem {
         super::get_entry_type(path)
     }
     
-    fn open_file(&mut self, mode: fsp::FileOpenMode, path_buf: sf::InFixedPointerBuffer<fsp::Path>) -> Result<mem::Shared<dyn fsp::IFile>> {
+    fn open_file(&mut self, mode: fsp::FileOpenMode, path_buf: sf::InFixedPointerBuffer<fsp::Path>) -> Result<::alloc::boxed::Box<dyn fsp::IFile>> {
         let path = self.make_path(&path_buf)?;
         let file_accessor = super::open_file(path, super::convert_file_open_mode_to_option(mode))?;
-        Ok(mem::Shared::new(fs_sf::File::new(file_accessor.get_object())))
+        Ok(Box::new(fs_sf::File::new(file_accessor.into_inner())))
     }
 
-    fn open_directory(&mut self, mode: fsp::DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<fsp::Path>) -> Result<mem::Shared<dyn fsp::IDirectory>> {
+    fn open_directory(&mut self, mode: fsp::DirectoryOpenMode, path_buf: sf::InFixedPointerBuffer<fsp::Path>) -> Result<::alloc::boxed::Box<dyn fsp::IDirectory>> {
         let path = self.make_path(&path_buf)?;
         let dir_accessor = super::open_directory(path, mode)?;
-        Ok(mem::Shared::new(fs_sf::Directory::new(dir_accessor.get_object())))
+        Ok(Box::new(fs_sf::Directory::new(dir_accessor.into_inner())))
     }
 
     fn commit(&mut self) -> Result<()> {

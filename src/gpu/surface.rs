@@ -22,13 +22,13 @@ const MAX_BUFFERS: usize = 8;
 /// Represents a `fn` with a certain layer disposing code
 /// 
 /// Note that different layers (managed layers, stray layers, etc.) are destroyed in different ways
-pub type LayerDestroyFn = fn(vi::LayerId, mem::Shared<dyn vi::IApplicationDisplayService>) -> Result<()>;
+pub type LayerDestroyFn = fn(vi::LayerId, &mut Box<dyn vi::IApplicationDisplayService>) -> Result<()>;
 
 /// Represents a wrapper around layer manipulation
 pub struct Surface {
     binder: binder::Binder,
-    nvdrv_srv: mem::Shared<dyn nv::INvDrvServices>,
-    application_display_service: mem::Shared<dyn vi::IApplicationDisplayService>,
+    nvdrv_srv: Box<dyn nv::INvDrvServices>,
+    application_display_service: Box<dyn vi::IApplicationDisplayService>,
     width: u32,
     height: u32,
     buffer_data: PointerAndSize,
@@ -59,11 +59,11 @@ impl Surface {
     /// * `binder_handle`: The binder handle to use
     /// * `nvdrv_srv`: The [`INvDrvServices`][`nv::INvDrvServices`] object to use
     /// * ``
-    pub fn new(binder_handle: i32, nvdrv_srv: mem::Shared<dyn nv::INvDrvServices>, application_display_service: mem::Shared<dyn vi::IApplicationDisplayService>, nvhost_fd: u32, nvmap_fd: u32, nvhostctrl_fd: u32, hos_binder_driver: mem::Shared<dyn dispdrv::IHOSBinderDriver>, buffer_count: u32, display_id: vi::DisplayId, layer_id: vi::LayerId, width: u32, height: u32, color_fmt: ColorFormat, pixel_fmt: PixelFormat, layout: Layout, layer_destroy_fn: LayerDestroyFn) -> Result<Self> {
+    pub fn new(binder_handle: i32, nvdrv_srv: Box<dyn nv::INvDrvServices>, mut application_display_service: Box<dyn vi::IApplicationDisplayService>, nvhost_fd: u32, nvmap_fd: u32, nvhostctrl_fd: u32, hos_binder_driver: Box<dyn dispdrv::IHOSBinderDriver>, buffer_count: u32, display_id: vi::DisplayId, layer_id: vi::LayerId, width: u32, height: u32, color_fmt: ColorFormat, pixel_fmt: PixelFormat, layout: Layout, layer_destroy_fn: LayerDestroyFn) -> Result<Self> {
         let mut binder = binder::Binder::new(binder_handle, hos_binder_driver)?;
         binder.increase_refcounts()?;
         let _ = binder.connect(ConnectionApi::Cpu, false)?;
-        let vsync_event_handle = application_display_service.get().get_display_vsync_event(display_id)?;
+        let vsync_event_handle = application_display_service.get_display_vsync_event(display_id)?;
         let buffer_event_handle = binder.get_native_handle(dispdrv::NativeHandleType::BufferEvent)?;
         let mut surface = Self { binder, nvdrv_srv, application_display_service, width, height, buffer_data: PointerAndSize::empty(), single_buffer_size: 0, buffer_count, slot_has_requested: [false; MAX_BUFFERS], graphic_buf: Default::default(), color_fmt, pixel_fmt, layout, display_id, layer_id, layer_destroy_fn, nvhost_fd, nvmap_fd, nvhostctrl_fd, vsync_event_handle: vsync_event_handle.handle, buffer_event_handle: buffer_event_handle.handle };
         surface.initialize()?;
@@ -77,7 +77,7 @@ impl Surface {
             ioctl::IoctlFd::NvHostCtrl => self.nvhostctrl_fd,
         };
 
-        let err = self.nvdrv_srv.get().ioctl(fd, I::get_id(), sf::Buffer::from_other_var(i), sf::Buffer::from_other_var(i))?;
+        let err = self.nvdrv_srv.ioctl(fd, I::get_id(), sf::Buffer::from_other_var(i), sf::Buffer::from_other_var(i))?;
         super::convert_nv_error_code(err)
     }
 
@@ -238,8 +238,8 @@ impl Surface {
     /// 
     /// * `visible`: Whether its visible
     pub fn set_visible(&mut self, visible: bool) -> Result<()> {
-        let system_display_service = self.application_display_service.get().get_system_display_service()?;
-        system_display_service.get().set_layer_visibility(visible, self.layer_id)
+        let mut system_display_service = self.application_display_service.get_system_display_service()?;
+        system_display_service.set_layer_visibility(visible, self.layer_id)
     }
 
     /// Adds a layer visibility stack
@@ -250,8 +250,8 @@ impl Surface {
     /// 
     /// * `stack_type_id`: the type of layer to add to the visibility stack
     pub fn push_layer_stack(&mut self, stack_type_id: vi::LayerStackId) -> Result<()> {
-        let manager_display_service = self.application_display_service.get().get_manager_display_service()?;
-        manager_display_service.get().add_to_layer_stack(stack_type_id,self.layer_id)
+        let mut manager_display_service = self.application_display_service.get_manager_display_service()?;
+        manager_display_service.add_to_layer_stack(stack_type_id,self.layer_id)
     }
 
     /// Waits for the buffer event
@@ -310,9 +310,9 @@ impl Drop for Surface {
         svc::set_memory_attribute(self.buffer_data.address, buf_size, 0, svc::MemoryAttribute::None());
         unsafe {dealloc(self.buffer_data.address, core::alloc::Layout::from_size_align_unchecked(self.buffer_data.size, PAGE_ALIGNMENT))};
         
-        (self.layer_destroy_fn)(self.layer_id, self.application_display_service.clone());
+        (self.layer_destroy_fn)(self.layer_id, &mut self.application_display_service);
 
-        self.application_display_service.get().close_display(self.display_id);
+        self.application_display_service.close_display(self.display_id);
 
         svc::close_handle(self.buffer_event_handle);
         svc::close_handle(self.vsync_event_handle);

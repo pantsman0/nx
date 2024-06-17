@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::util;
 use crate::ipc::sf::applet;
 use crate::ipc::sf::mii;
@@ -209,6 +210,8 @@ pub enum WriteType {
     Unk1 = 1
 }
 
+crate::impl_copy_server_command_parameter_for_types!(DeviceState, State);
+
 ipc_sf_define_interface_trait! {
     trait IUser {
         initialize [0, version::VersionInterval::all()]: (aruid: applet::AppletResourceUserId, process_id: sf::ProcessId, mcu_data: sf::InMapAliasBuffer<McuVersionData>) => ();
@@ -241,7 +244,7 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IUserManager {
-        create_user_interface [0, version::VersionInterval::all()]: () => (user_interface: mem::Shared<dyn IUser>);
+        create_user_interface [0, version::VersionInterval::all()]: () => (user_interface: Box<dyn IUser>);
     }
 }
 
@@ -278,10 +281,11 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait ISystemManager {
-        create_system_interface [0, version::VersionInterval::all()]: () => (system_interface: mem::Shared<dyn ISystem>);
+        create_system_interface [0, version::VersionInterval::all()]: () => (system_interface: Box<dyn ISystem>);
     }
 }
 
+crate::impl_copy_server_command_parameter_for_types!(DeviceHandle, ModelType, MountTarget, BreakType, WriteType);
 ipc_sf_define_interface_trait! {
     trait IDebug {
         initialize_debug [0, version::VersionInterval::all()]: (aruid: applet::AppletResourceUserId, process_id: sf::ProcessId, mcu_data: sf::InMapAliasBuffer<McuVersionData>) => ();
@@ -328,6 +332,6 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IDebugManager {
-        create_debug_interface [0, version::VersionInterval::all()]: () => (debug_interface: mem::Shared<dyn IDebug>);
+        create_debug_interface [0, version::VersionInterval::all()]: () => (debug_interface: Box<dyn IDebug>);
     }
 }

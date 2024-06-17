@@ -1,6 +1,5 @@
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::version;
 
 define_bit_enum! {
@@ -11,6 +10,7 @@ define_bit_enum! {
         All = 0xFFFF
     }
 }
+crate::impl_copy_server_command_parameter!(LogDestination);
 
 ipc_sf_define_interface_trait! {
     trait ILogger {
@@ -21,6 +21,6 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait ILogService {
-        open_logger [0, version::VersionInterval::all()]: (process_id: sf::ProcessId) => (logger: mem::Shared<dyn ILogger>);
+        open_logger [0, version::VersionInterval::all()]: (process_id: sf::ProcessId) => (logger: ::alloc::boxed::Box<dyn ILogger>);
     }
 }

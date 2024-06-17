@@ -1,9 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::sm;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
-
 pub use crate::ipc::sf::hid::*;
 
 ipc_client_define_object_default!(AppletResource);
@@ -17,8 +17,8 @@ impl IAppletResource for AppletResource {
 ipc_client_define_object_default!(HidServer);
 
 impl IHidServer for HidServer {
-    fn create_applet_resource(&mut self, aruid: sf::ProcessId) -> Result<mem::Shared<dyn IAppletResource>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] (aruid) => (applet_resource: mem::Shared<AppletResource>))
+    fn create_applet_resource(&mut self, aruid: sf::ProcessId) -> Result<Box<dyn IAppletResource>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] (aruid) => (applet_resource: Box<AppletResource>))
     }
 
     fn set_supported_npad_style_set(&mut self, aruid: sf::ProcessId, npad_style_tag: NpadStyleTag) -> Result<()> {

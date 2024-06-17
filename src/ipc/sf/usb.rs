@@ -67,6 +67,7 @@ pub struct EndPointDescriptor {
     max_packet_size: u16,
     interval: u8
 }
+crate::impl_copy_client_command_parameter!(EndPointDescriptor);
 const_assert!(core::mem::size_of::<EndPointDescriptor>() == 0x7);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

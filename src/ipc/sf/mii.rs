@@ -1,6 +1,7 @@
+use alloc::boxed::Box;
+
 use crate::result::*;
 use crate::ipc::sf;
-use crate::mem;
 use crate::util;
 use crate::version;
 
@@ -48,6 +49,7 @@ define_bit_enum! {
         Default = bit!(1)
     }
 }
+crate::impl_copy_server_command_parameter!(SourceFlag);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 #[repr(u32)]
@@ -56,6 +58,7 @@ pub enum SpecialKeyCode {
     Normal = 0,
     Special = 0xA523B78F
 }
+crate::impl_copy_server_command_parameter!(SpecialKeyCode);
 
 pub type CreateId = util::Uuid;
 
@@ -563,6 +566,8 @@ pub struct CharInfo {
     pub mole_y: u8,
     pub reserved: u8
 }
+crate::impl_copy_client_command_parameter!(CharInfo);
+crate::impl_copy_server_command_parameter!(CharInfo);
 const_assert!(core::mem::size_of::<CharInfo>() == 0x58);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -1684,8 +1689,7 @@ pub fn compute_crc16(data_buf: *const u8, data_size: usize, base_crc: u16, rever
 #[cfg(feature = "services")]
 #[inline]
 pub fn get_device_id() -> Result<CreateId> {
-    let set_sys: mem::Shared<set::SystemSettingsServer> = service::new_service_object()?;
-    set_sys.get().get_mii_author_id()
+    service::new_service_object::<set::SystemSettingsServer>()?.get_mii_author_id()
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
@@ -1752,6 +1756,6 @@ ipc_sf_define_interface_trait! {
 
 ipc_sf_define_interface_trait! {
     trait IStaticService {
-        get_database_service [0, version::VersionInterval::all()]: (key_code: SpecialKeyCode) => (database_service: mem::Shared<dyn IDatabaseService>);
+        get_database_service [0, version::VersionInterval::all()]: (key_code: SpecialKeyCode) => (database_service: Box<dyn IDatabaseService>);
     }
 }

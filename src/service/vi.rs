@@ -1,8 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::sm;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
 use crate::service::dispdrv;
 use crate::service::applet;
 
@@ -55,16 +56,16 @@ impl ISystemDisplayService for SystemDisplayService {
 ipc_client_define_object_default!(ApplicationDisplayService);
 
 impl IApplicationDisplayService for ApplicationDisplayService {
-    fn get_relay_service(&mut self) -> Result<mem::Shared<dyn dispdrv::IHOSBinderDriver>> {
-        ipc_client_send_request_command!([self.session.object_info; 100] () => (relay_service: mem::Shared<dispdrv::HOSBinderDriver>))
+    fn get_relay_service(&mut self) -> Result<Box<dyn dispdrv::IHOSBinderDriver>> {
+        ipc_client_send_request_command!([self.session.object_info; 100] () => (relay_service: Box<dispdrv::HOSBinderDriver>))
     }
 
-    fn get_system_display_service(&mut self) -> Result<mem::Shared<dyn ISystemDisplayService>> {
-        ipc_client_send_request_command!([self.session.object_info; 101] () => (relay_service: mem::Shared<SystemDisplayService>))
+    fn get_system_display_service(&mut self) -> Result<Box<dyn ISystemDisplayService>> {
+        ipc_client_send_request_command!([self.session.object_info; 101] () => (relay_service: Box<SystemDisplayService>))
     }
 
-    fn get_manager_display_service(&mut self) -> Result<mem::Shared<dyn IManagerDisplayService>> {
-        ipc_client_send_request_command!([self.session.object_info; 102] () => (relay_service: mem::Shared<ManagerDisplayService>))
+    fn get_manager_display_service(&mut self) -> Result<Box<dyn IManagerDisplayService>> {
+        ipc_client_send_request_command!([self.session.object_info; 102] () => (relay_service: Box<ManagerDisplayService>))
     }
 
     fn open_display(&mut self, name: DisplayName) -> Result<DisplayId> {
@@ -95,8 +96,8 @@ impl IApplicationDisplayService for ApplicationDisplayService {
 ipc_client_define_object_default!(ApplicationRootService);
 
 impl IApplicationRootService for ApplicationRootService {
-    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<mem::Shared<dyn IApplicationDisplayService>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] (mode) => (display_service: mem::Shared<ApplicationDisplayService>))
+    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<::alloc::boxed::Box<dyn IApplicationDisplayService>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] (mode) => (display_service: Box<ApplicationDisplayService>))
     }
 }
 
@@ -117,8 +118,8 @@ impl service::IService for ApplicationRootService {
 ipc_client_define_object_default!(SystemRootService);
 
 impl ISystemRootService for SystemRootService {
-    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<mem::Shared<dyn IApplicationDisplayService>> {
-        ipc_client_send_request_command!([self.session.object_info; 1] (mode) => (display_service: mem::Shared<ApplicationDisplayService>))
+    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<::alloc::boxed::Box<dyn IApplicationDisplayService>> {
+        ipc_client_send_request_command!([self.session.object_info; 1] (mode) => (display_service: Box<ApplicationDisplayService>))
     }
 }
 
@@ -139,8 +140,8 @@ impl service::IService for SystemRootService {
 ipc_client_define_object_default!(ManagerRootService);
 
 impl IManagerRootService for ManagerRootService {
-    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<mem::Shared<dyn IApplicationDisplayService>> {
-        ipc_client_send_request_command!([self.session.object_info; 2] (mode) => (display_service: mem::Shared<ApplicationDisplayService>))
+    fn get_display_service(&mut self, mode: DisplayServiceMode) -> Result<Box<dyn IApplicationDisplayService>> {
+        ipc_client_send_request_command!([self.session.object_info; 2] (mode) => (display_service: Box<ApplicationDisplayService>))
     }
 }
 

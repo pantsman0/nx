@@ -26,6 +26,8 @@ pub enum ErrorCode {
     FileOperationFailed = 0x30003,
     IoctlFailed = 0x3000F
 }
+crate::impl_copy_client_command_parameter!(ErrorCode);
+crate::impl_copy_server_command_parameter!(ErrorCode);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u32)]
@@ -39,8 +41,10 @@ pub enum IoctlId {
 
     NvHostCtrlSyncptWait = 0xC00C0016
 }
+crate::impl_copy_server_command_parameter!(IoctlId);
 
 pub type Fd = u32;
+
 
 ipc_sf_define_interface_trait! {
     trait INvDrvServices {

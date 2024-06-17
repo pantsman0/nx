@@ -1,9 +1,9 @@
+use alloc::boxed::Box;
+
 use crate::ipc::sf::sm;
 use crate::result::*;
 use crate::ipc::sf;
 use crate::service;
-use crate::mem;
-
 pub use crate::ipc::sf::mii::*;
 
 ipc_client_define_object_default!(DatabaseService);
@@ -33,8 +33,8 @@ impl IDatabaseService for DatabaseService {
 ipc_client_define_object_default!(StaticService);
 
 impl IStaticService for StaticService {
-    fn get_database_service(&mut self, key_code: SpecialKeyCode) -> Result<mem::Shared<dyn IDatabaseService>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] (key_code) => (database_service: mem::Shared<DatabaseService>))
+    fn get_database_service(&mut self, key_code: SpecialKeyCode) -> Result<Box<dyn IDatabaseService>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] (key_code) => (database_service: Box<DatabaseService>))
     }
 }
 

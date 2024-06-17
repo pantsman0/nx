@@ -36,6 +36,8 @@ pub enum NativeHandleType {
 
 pub type BinderHandle = i32;
 
+crate::impl_copy_server_command_parameter_for_types!(ParcelTransactionId, RefcountType, NativeHandleType);
+
 ipc_sf_define_interface_trait! { 
     trait IHOSBinderDriver {
         transact_parcel [0, version::VersionInterval::all()]: (binder_handle: BinderHandle, transaction_id: ParcelTransactionId, flags: u32, in_parcel: sf::InMapAliasBuffer<u8>, out_parcel: sf::OutMapAliasBuffer<u8>) => ();

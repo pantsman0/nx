@@ -27,11 +27,10 @@ use crate::ipc::sf;
 use crate::service;
 use crate::service::spl;
 use crate::service::spl::IRandomInterface;
-use crate::mem;
 
 /// Represents a pseudo-RNG using [`spl`]'s [`RandomInterface`][`spl::RandomInterface`] interface
 pub struct SplCsrngGenerator {
-    csrng: mem::Shared<dyn IRandomInterface>
+    csrng: Box<dyn IRandomInterface>
 }
 
 impl SplCsrngGenerator {

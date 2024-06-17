@@ -21,6 +21,8 @@ pub struct Uuid {
     /// The UUID byte array
     pub uuid: [u8; 0x10]
 }
+crate::impl_copy_client_command_parameter!(Uuid);
+crate::impl_copy_server_command_parameter!(Uuid);
 
 /// Represents a pair of a pointer and a size
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

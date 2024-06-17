@@ -35,12 +35,12 @@ impl IRegisteredLocationResolver for RegisteredLocationResolver {
 ipc_client_define_object_default!(LocationResolverManager);
 
 impl ILocationResolverManager for LocationResolverManager {
-    fn open_location_resolver(&mut self, storage_id: ncm::StorageId) -> Result<mem::Shared<dyn ILocationResolver>> {
-        ipc_client_send_request_command!([self.session.object_info; 0] (storage_id) => (resolver: mem::Shared<LocationResolver>))
+    fn open_location_resolver(&mut self, storage_id: ncm::StorageId) -> Result<Box<dyn ILocationResolver>> {
+        ipc_client_send_request_command!([self.session.object_info; 0] (storage_id) => (resolver: Box<LocationResolver>))
     }
 
-    fn open_registered_location_resolver(&mut self) -> Result<mem::Shared<dyn IRegisteredLocationResolver>> {
-        ipc_client_send_request_command!([self.session.object_info; 1] () => (resolver: mem::Shared<RegisteredLocationResolver>))
+    fn open_registered_location_resolver(&mut self) -> Result<Box<dyn IRegisteredLocationResolver>> {
+        ipc_client_send_request_command!([self.session.object_info; 1] () => (resolver: Box<RegisteredLocationResolver>))
     }
 }
 

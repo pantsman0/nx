@@ -9,4 +9,7 @@ pub struct MitmProcessInfo {
     pub override_flags: u64
 }
 
+crate::impl_copy_client_command_parameter!(MitmProcessInfo);
+crate::impl_copy_server_command_parameter!(MitmProcessInfo);
+
 pub mod rc;

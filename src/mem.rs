@@ -7,9 +7,7 @@ use core::ops;
 use core::ptr;
 use core_alloc::boxed::Box;
 
-use crate::sync::LockGuard;
-use crate::sync::Locked;
-use crate::sync::ScopedLock;
+
 use crate::util;
 
 pub mod alloc;
@@ -67,6 +65,7 @@ impl ReferenceCount {
 }
 
 
+/*
 pub struct Shared<T: ?Sized>(::alloc::rc::Rc<Locked<Box<T>>>);
 
 impl<T> Shared<T> {
@@ -87,9 +86,29 @@ impl<'borrow, T: ?Sized> Shared<T> {
     }
 }
 
-impl<T: marker::Unsize<U> + ?Sized, U: ?Sized> ops::CoerceUnsized<Shared<U>> for Shared<T> {}
+impl<T: ?Sized> Clone for Shared<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+     }
+}
 
-/* 
+impl<T: ?Sized> PartialEq for Shared<T>  {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.ptr_eq(other.0)
+    }
+}
+
+for<I> impl<T> Into<Shared<dyn I>> for Shared<T> where T: I {
+    pub fn into(self) -> Shared<dyn I> {
+        let lock = self.0.into_inner();
+        let boxed = lock.into_inner();
+        Shared(::alloc::rc::Rc::new(Locked::new(true, boxed as Box<dyn I>)))
+    }
+}
+//impl<T: marker::Unsize<U> + ?Sized, U: ?Sized> ops::CoerceUnsized<Shared<U>> for Shared<T> {}
+*/
+
+
 /// Represents a shared object, similar to C++'s `std::shared_ptr`
 pub struct Shared<T: ?Sized> {
     object: *mut T,
@@ -183,7 +202,7 @@ impl<T: ?Sized> PartialEq for Shared<T> {
     }
 }
 
-impl<T: ?Sized> Eq for Shared<T> {}*/
+impl<T: ?Sized> Eq for Shared<T> {}
 
 /// Flushes data cache at a certain memory region
 ///

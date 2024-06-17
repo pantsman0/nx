@@ -1,7 +1,10 @@
+use alloc::boxed::Box;
+
 use crate::{result::*, util};
 use crate::ipc::sf;
 use crate::version;
-use crate::mem;
+
+use super::EndPointDescriptor;
 
 define_bit_enum! {
     DeviceFilterFlags (u16) {
@@ -114,6 +117,7 @@ ipc_sf_define_interface_trait! {
     }
 }
 
+crate::impl_copy_server_command_parameter_for_types!(DeviceFilter, InterfaceAvailableEventId, EndPointDescriptor);
 ipc_sf_define_interface_trait! {
     trait IClientIfSession {
         get_state_change_event [0, version::VersionInterval::all()]: () => (event_handle: sf::CopyHandle);
@@ -128,10 +132,11 @@ ipc_sf_define_interface_trait! {
         submit_control_out_request [7, version::VersionInterval::to(version::Version::new(1,0,0))]: (request: u8, request_type: u8, val: u16, idx: u16, length: u16, timeout_ms: u32, buf: sf::InMapAliasBuffer<u8>) => (transferred_size: u32);
         get_ctrl_xfer_report [7, version::VersionInterval::from(version::Version::new(2,0,0))]: (out_report_buf: sf::OutMapAliasBuffer<XferReport>) => ();
         reset_device [8, version::VersionInterval::all()]: (unk: u32) => ();
-        open_usb_ep_deprecated [4, version::VersionInterval::to(version::Version::new(1,0,0))]: (max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) => (ep_desc: super::EndPointDescriptor, ep_session: mem::Shared<dyn IClientEpSession>);
-        open_usb_ep [9, version::VersionInterval::from(version::Version::new(2,0,0))]: (max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) => (ep_desc: super::EndPointDescriptor, ep_session: mem::Shared<dyn IClientEpSession>);
+        open_usb_ep_deprecated [4, version::VersionInterval::to(version::Version::new(1,0,0))]: (max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) => (ep_desc: super::EndPointDescriptor, ep_session: Box<dyn IClientEpSession>);
+        open_usb_ep [9, version::VersionInterval::from(version::Version::new(2,0,0))]: (max_urb_count: u16, ep_type: u32, ep_number: u32, ep_direction: u32, max_xfer_size: u32) => (ep_desc: super::EndPointDescriptor, ep_session: Box<dyn IClientEpSession>);
     }
 }
+
 
 ipc_sf_define_interface_trait! {
     trait IClientRootSession {
@@ -148,8 +153,8 @@ ipc_sf_define_interface_trait! {
         destroy_interface_available_event [5, version::VersionInterval::from(version::Version::new(2,0,0))]: (event_id: InterfaceAvailableEventId) => ();
         get_interface_state_change_event_deprecated [5, version::VersionInterval::to(version::Version::new(1,0,0))]: () => (event_handle: sf::CopyHandle);
         get_interface_state_change_event [6, version::VersionInterval::from(version::Version::new(2,0,0))]: () => (event_handle: sf::CopyHandle);
-        acquire_usb_if_deprecated [6, version::VersionInterval::to(version::Version::new(1,0,0))]: (id: u32, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) => (if_session: mem::Shared<dyn IClientIfSession>);
-        acquire_usb_if [7, version::VersionInterval::from(version::Version::new(2,0,0))]: (id: u32, out_info_buf: sf::OutMapAliasBuffer<InterfaceInfo>, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) => (if_session: mem::Shared<dyn IClientIfSession>);
+        acquire_usb_if_deprecated [6, version::VersionInterval::to(version::Version::new(1,0,0))]: (id: u32, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) => (if_session: Box<dyn IClientIfSession>);
+        acquire_usb_if [7, version::VersionInterval::from(version::Version::new(2,0,0))]: (id: u32, out_info_buf: sf::OutMapAliasBuffer<InterfaceInfo>, out_profile_buf: sf::OutMapAliasBuffer<InterfaceProfile>) => (if_session: Box<dyn IClientIfSession>);
         get_descriptor_string [7, version::VersionInterval::to(version::Version::new(1,0,0))]: (unk_1: u8, unk_2: bool, unk_maybe_id: u32, out_desc_buf: sf::OutMapAliasBuffer<u8>) => (unk_maybe_desc_len: u32);
         reset_device [8, version::VersionInterval::to(version::Version::new(1,0,0))]: (unk: u32) => ();
     }
